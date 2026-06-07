@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.voidmart",
+      "sha256_cert_fingerprints": [
+        "4F:45:44:C5:38:F8:14:78:F1:33:8A:4D:7B:02:D2:4D:EE:BD:8E:E9:2D:BF:A4:A9:46:D8:1F:C2:79:C4:56:36"
+      ]
+    }
+  }
+]

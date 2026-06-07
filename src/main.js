@@ -1,0 +1,47 @@
+/* ============================================================
+   VOIDMART — main.js  (bootstrap + button wiring)
+   ============================================================ */
+(function () {
+  "use strict";
+  function boot() {
+    const TD = window.TD;
+    TD.UI.init();
+    TD.Game.init();
+    TD.UI.show("startScreen");
+
+    const $ = (id) => document.getElementById(id);
+    // unlock audio on first gesture
+    const unlock = () => { TD.Audio.init(); };
+    document.addEventListener("pointerdown", unlock, { once: true });
+
+    $("playBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
+    $("retryBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
+    $("rerollBtn").addEventListener("click", () => { TD.Audio.reroll(); TD.Game.rerollShop(); });
+    $("spinBtn").addEventListener("click", () => {
+      const w = TD.UI._wheel;
+      if (w && w.done) TD.UI.claimWheel(); else TD.UI.spinWheel();
+    });
+    $("pauseBtn").addEventListener("click", () => { TD.Audio.ui(); TD.Game.togglePause(); });
+    $("muteBtn").addEventListener("click", () => {
+      const on = !TD.Audio.enabled;
+      TD.Audio.setEnabled(on);
+      $("muteBtn").textContent = on ? "🔊" : "🔇";
+      if (on) TD.Audio.ui();
+    });
+
+    // pause when tab/app is backgrounded
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && TD.Game.state === "play") TD.Game.togglePause();
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+
+  // register the service worker (offline / installable PWA)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+})();

@@ -1,0 +1,16 @@
+{
+  "name": "VOIDMART",
+  "short_name": "VOIDMART",
+  "description": "A knock-off bargain-bin space shooter. Everything must go. Into the void.",
+  "start_url": "./Voidmart.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#05050f",
+  "theme_color": "#ff6a13",
+  "icons": [
+    { "src": "icons/voidmart-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/voidmart-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/voidmart-icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

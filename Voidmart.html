@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>VOIDMART — Everything Must Go. Into the Void.</title>
+<meta name="theme-color" content="#ff6a13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VOIDMART">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/voidmart-icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/voidmart-icon-512.png">
+<link rel="apple-touch-icon" href="icons/voidmart-icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <!-- In-game HUD (DOM overlay) -->
+    <div id="hud" class="hidden" aria-hidden="true">
+      <div class="hud-top">
+        <div class="hud-left">
+          <div class="bar-stack">
+            <div class="bar hull"><div class="bar-fill" id="hullFill"></div><span class="bar-label" id="hullLabel">HULL</span></div>
+            <div class="bar shield"><div class="bar-fill" id="shieldFill"></div><span class="bar-label" id="shieldLabel">FIELD</span></div>
+          </div>
+        </div>
+        <div class="hud-right">
+          <div class="score-box">
+            <div class="score-num" id="scoreNum">0</div>
+            <div class="score-cap">SAVINGS</div>
+          </div>
+          <div class="wave-pill" id="wavePill">DAY 1</div>
+        </div>
+      </div>
+      <div class="cart-row">
+        <div class="cart-icon">🛒</div>
+        <div class="cart-bar"><div class="cart-fill" id="cartFill"></div><span class="cart-text" id="cartText">LVL 1</span></div>
+        <div class="coin-count"><span id="coinNum">0</span> 🪙</div>
+      </div>
+    </div>
+
+    <!-- Boss banner -->
+    <div id="bossBanner" class="hidden"></div>
+
+    <!-- Toast / pickup feed -->
+    <div id="toasts"></div>
+
+    <!-- START SCREEN -->
+    <div id="startScreen" class="screen">
+      <div class="phone-frame">
+        <div class="app-badge">
+          <div class="app-icon">🛸</div>
+        </div>
+        <h1 class="logo">VOID<span>MART</span></h1>
+        <p class="tagline">Everything must go. <br>Into the void.™</p>
+        <div class="rating-row">
+          <span class="stars">★★★★★★★★★★★</span>
+          <span class="rating-meta">11.0 · 5,000,000,000,000 installs</span>
+        </div>
+        <ul class="bullets">
+          <li><span class="b-ico">🚀</span><span class="b-txt">Touch &amp; hold <b>anywhere</b> to fly. Guns are automatic.</span></li>
+          <li><span class="b-ico">🪙</span><span class="b-txt">Vacuum up coins. Fill your cart to <b>level up</b>.</span></li>
+          <li><span class="b-ico">🎁</span><span class="b-txt">Checkout = pick a <b>FREE</b> knock-off upgrade.</span></li>
+          <li><span class="b-ico">💥</span><span class="b-txt">Survive the daily deals. They bite.</span></li>
+        </ul>
+        <button class="big-cta" id="playBtn">▶  SHOP NOW</button>
+        <div class="legal">Not affiliated with anything. Ships from a warehouse in the asteroid belt. No refunds in the vacuum of space.</div>
+      </div>
+    </div>
+
+    <!-- SHOP / LEVEL-UP OVERLAY -->
+    <div id="shopScreen" class="screen hidden">
+      <div class="shop-sheet">
+        <div class="shop-head">
+          <div class="flash">⚡ FLASH SALE · <span id="flashTimer">00:09</span> left</div>
+          <h2 class="shop-title">🎁 Congrats! You unlocked a <b>FREE GIFT</b></h2>
+          <p class="shop-sub">Add <b>1</b> item to cart. Limit one per checkout. While supplies last.</p>
+        </div>
+        <div class="shop-cards" id="shopCards"></div>
+        <div class="shop-foot">
+          <button class="reroll-btn" id="rerollBtn">🔄 See other deals <span class="reroll-count" id="rerollCount">×2</span></button>
+          <div class="ship-note">🚚 Free shipping · Delivered to your hull instantly</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="overScreen" class="screen hidden">
+      <div class="phone-frame over">
+        <div class="over-stamp">CART ABANDONED</div>
+        <h1 class="over-title">📦 Order Cancelled</h1>
+        <p class="over-sub" id="overReason">Your hull was returned to sender.</p>
+        <div class="receipt" id="receipt"></div>
+        <button class="big-cta" id="retryBtn">🔁 RE-ORDER (PLAY AGAIN)</button>
+        <div class="legal" id="overTip"></div>
+      </div>
+    </div>
+
+    <!-- PRIZE WHEEL OVERLAY -->
+    <div id="wheelScreen" class="screen hidden">
+      <div class="wheel-sheet">
+        <div class="wheel-head">
+          <div class="flash" id="wheelKicker">🎁 BOSS REWARD · MEMBERS-ONLY</div>
+          <h2 class="shop-title" id="wheelTitle">🎡 Spin the <b>Prize Wheel</b>!</h2>
+          <p class="shop-sub" id="wheelSub">One <b>FREE</b> power, guaranteed. These <b>stack forever</b>.</p>
+        </div>
+        <div class="wheel-track" id="wheelTrack"></div>
+        <div class="wheel-foot">
+          <button class="big-cta wheel-spin" id="spinBtn">🎡  SPIN TO WIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause + mute buttons -->
+    <button id="pauseBtn" class="hidden">II</button>
+    <button id="muteBtn" class="hidden">🔊</button>
+  </div>
+
+  <script src="src/core.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/weapons.js"></script>
+  <script src="src/enemies.js"></script>
+  <script src="src/upgrades.js"></script>
+  <script src="src/prizes.js"></script>
+  <script src="src/bodies.js"></script>
+  <script src="src/game.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
