@@ -124,10 +124,13 @@
         const def = BY_ID[id];
         if (def) deptInvest[def.dept] = (deptInvest[def.dept] || 0) + ship.mods[id];
       }
+      // legendary "Doorbuster" deals are a paid perk — excluded for free players
+      const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
       const cands = [];
       for (const u of LIST) {
         const have = ship.mods[u.id] || 0;
         if (have >= u.max) continue;
+        if (u.rarity === "legendary" && !paid) continue;
         if (u.prereq && !u.prereq(ship)) continue;
         let w = (RARITY_W[u.rarity] || 10) * u.weight;
         // scale rare+ odds up as you progress
