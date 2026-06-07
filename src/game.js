@@ -535,6 +535,7 @@
       this.closeShop();
     },
     rerollShop() {
+      if (!(TD.Entitlement && TD.Entitlement.isUnlocked())) return;  // paid perk
       if (this.rerolls <= 0) return;
       this.rerolls--;
       TD.UI.openShop(this, TD.Upgrades.roll(this.ship, 3));

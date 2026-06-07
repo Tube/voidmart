@@ -77,8 +77,13 @@
       this.el.pauseBtn.classList.add("hidden");
       this.renderOffers(g, offers);
       this.el.muteBtn.classList.add("hidden");
-      this.el.rerollCount.textContent = "×" + g.rerolls;
-      this.el.rerollBtn.disabled = g.rerolls <= 0;
+      // "See other deals" (reroll) is a paid perk — hide it for free players.
+      const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
+      this.el.rerollBtn.classList.toggle("hidden", !paid);
+      if (paid) {
+        this.el.rerollCount.textContent = "×" + g.rerolls;
+        this.el.rerollBtn.disabled = g.rerolls <= 0;
+      }
       // cosmetic flash-sale countdown
       this._flash = 9.0;
       clearInterval(this._flashI);
