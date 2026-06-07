@@ -102,11 +102,25 @@
     },
   ];
 
+  // The free starter hull. Same chassis + base stats as the Lucky Clover, but
+  // stripped of its crit/coin perks (no apply()) and painted plain gray. Used
+  // when a player hasn't unlocked the welcome ship wheel. Intentionally kept OUT
+  // of LIST so it is never offered as a wheel option.
+  const DEFAULT = {
+    id: "default", name: "Store Brand", icon: "🛒", seg: "#b9bdc9", color: "#b9bdc9",
+    isBody: true,
+    desc: "Standard-issue hull. No frills, no bonuses — but it flies.",
+    draw(ctx, r, inv) {
+      hull(ctx, this.color, inv, [[r * 1.4, 0], [-r, r * 0.85], [-r * 0.5, 0], [-r, -r * 0.85]], [r * 0.25, 0, r * 0.28]);
+    },
+  };
+
   const BY_ID = {};
   LIST.forEach((b) => { b.isBody = true; BY_ID[b.id] = b; });
+  BY_ID[DEFAULT.id] = DEFAULT;
 
   TD.BODIES = {
-    LIST, BY_ID,
+    LIST, BY_ID, DEFAULT,
     roll(n) { n = n || 3; return M.shuffle(LIST).slice(0, Math.min(n, LIST.length)); },
   };
 })();

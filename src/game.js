@@ -66,7 +66,7 @@
       this.pops = []; this.floaters = []; this.zones = [];
       // prize-wheel meta-powers
       this.ship.prizes = {};
-      this.ship.chassis = TD.BODIES.BY_ID.balanced;   // default until the welcome wheel resolves
+      this.ship.chassis = TD.BODIES.DEFAULT;   // default hull until the welcome wheel resolves (paid) or stays (free)
       this.ship.damageMul = 1; this.ship.fireMul = 1;
       this.ship.combo = 0; this.ship.shotCount = 0; this.ship.shockT = 4;
       this.ship.trailT = 0;
@@ -81,6 +81,12 @@
       if (TD.Audio) TD.Audio.setThrust(0);
       this._wheelReason = reason;
       if (reason === "start") {
+        // The welcome ship wheel is a paid perk. Free players skip the random
+        // ship pick and launch straight into play in the default hull.
+        if (!(TD.Entitlement && TD.Entitlement.isUnlocked())) {
+          this.applyBody(TD.BODIES.DEFAULT);
+          return;
+        }
         // welcome spin: choose a ship CHASSIS, not a power
         TD.UI.openWheel(this, TD.BODIES.roll(3), "🚀 WELCOME GIFT · PICK YOUR RIDE", {
           title: "🎡 Spin for your <b>Ship</b>!",
