@@ -17,10 +17,9 @@
     $("playBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
     $("retryBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
     $("rerollBtn").addEventListener("click", () => { TD.Audio.reroll(); TD.Game.rerollShop(); });
-    $("spinBtn").addEventListener("click", () => {
-      const w = TD.UI._wheel;
-      if (w && w.done) TD.UI.claimWheel(); else TD.UI.spinWheel();
-    });
+    $("spinBtn").addEventListener("click", () => { TD.UI.onSpin(); });
+    const skipBtn = $("wheelSkipBtn");
+    if (skipBtn) skipBtn.addEventListener("click", () => { TD.Audio.ui(); TD.UI.skipWheel(); });
     $("pauseBtn").addEventListener("click", () => { TD.Audio.ui(); TD.Game.togglePause(); });
     $("muteBtn").addEventListener("click", () => {
       const on = !TD.Audio.enabled;

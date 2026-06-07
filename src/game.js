@@ -81,16 +81,16 @@
       if (TD.Audio) TD.Audio.setThrust(0);
       this._wheelReason = reason;
       if (reason === "start") {
-        // The welcome ship wheel is a paid perk. Free players skip the random
-        // ship pick and launch straight into play in the default hull.
-        if (!(TD.Entitlement && TD.Entitlement.isUnlocked())) {
-          this.applyBody(TD.BODIES.DEFAULT);
-          return;
-        }
-        // welcome spin: choose a ship CHASSIS, not a power
+        // The welcome ship wheel is a paid perk. Paid players spin to pick a
+        // chassis; free players see it LOCKED (a teaser) and can either unlock
+        // it or fly the free default "Store Brand" hull instead.
+        const locked = !(TD.Entitlement && TD.Entitlement.isUnlocked());
         TD.UI.openWheel(this, TD.BODIES.roll(3), "🚀 WELCOME GIFT · PICK YOUR RIDE", {
-          title: "🎡 Spin for your <b>Ship</b>!",
-          sub: "Every chassis flies differently. Spin to claim one.",
+          title: locked ? "🔒 Unlock your <b>Ship</b>" : "🎡 Spin for your <b>Ship</b>!",
+          sub: locked
+            ? "Choose from premium hulls — or fly the free Store Brand below."
+            : "Every chassis flies differently. Spin to claim one.",
+          locked,
         });
         return;
       }

@@ -311,4 +311,12 @@ canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block;touch
 .wheel-spin:active{box-shadow:0 3px 0 #c79100,0 8px 14px rgba(255,194,35,.4);}
 .wheel-spin:disabled{opacity:.7;filter:saturate(.6);}
 .wheel-claim{background:linear-gradient(180deg,#33d98a,var(--green));box-shadow:0 8px 0 #0f8a55,0 14px 26px rgba(25,195,125,.4);color:#fff;}
+/* locked welcome-wheel teaser (free tier) */
+.wheel-track.locked .prize{opacity:.62;filter:grayscale(.5);}
+.prize .p-lock{margin-left:auto;flex-shrink:0;font-size:20px;opacity:.85;}
+.wheel-spin.locked{background:linear-gradient(180deg,#ffd34d,#ff9d00);}
+.wheel-skip{display:block;width:100%;margin-top:10px;padding:9px;background:none;border:none;
+  color:#cdd2e6;font-family:inherit;font-size:13px;font-weight:700;opacity:.82;
+  text-decoration:underline;cursor:pointer;}
+.wheel-skip:active{opacity:1;}
 .wheel-claim:active{box-shadow:0 3px 0 #0f8a55;}

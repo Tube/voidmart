@@ -48,6 +48,21 @@
     return service;
   }
 
+  // Localized price string for the unlock (e.g. "$0.99"), or null outside Play.
+  async function price() {
+    const svc = await getService();
+    if (!svc) return null;
+    try {
+      const d = await svc.getDetails([SKU]);
+      const it = d && d[0];
+      if (it && it.price) {
+        return new Intl.NumberFormat(undefined, { style: "currency", currency: it.price.currency })
+          .format(Number(it.price.value));
+      }
+    } catch (e) {}
+    return null;
+  }
+
   // Re-verify ownership from Play (restores entitlement after reinstall).
   async function refresh() {
     const svc = await getService();
@@ -91,6 +106,7 @@
     setUnlocked,
     refresh,
     purchase,
+    price,
   };
 
   // Best-effort restore on load (no-op outside the Play app).

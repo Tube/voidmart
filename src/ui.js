@@ -23,7 +23,7 @@
         flashTimer: $("flashTimer"), bossBanner: $("bossBanner"),
         toasts: $("toasts"), receipt: $("receipt"),
         wheelScreen: $("wheelScreen"), wheelTrack: $("wheelTrack"),
-        spinBtn: $("spinBtn"), wheelKicker: $("wheelKicker"),
+        spinBtn: $("spinBtn"), wheelKicker: $("wheelKicker"), wheelSkipBtn: $("wheelSkipBtn"),
         wheelTitle: $("wheelTitle"), wheelSub: $("wheelSub"),
         overReason: $("overReason"), overTip: $("overTip"),
       };
@@ -153,7 +153,7 @@
     /* ---------- PRIZE WHEEL ---------- */
     openWheel(g, prizes, kicker, opts) {
       opts = opts || {};
-      this._wheel = { g, prizes, winner: null, spinning: false, done: false };
+      this._wheel = { g, prizes, winner: null, spinning: false, done: false, locked: !!opts.locked };
       this.el.hud.classList.add("hidden");
       this.el.pauseBtn.classList.add("hidden");
       this.el.muteBtn.classList.add("hidden");
@@ -162,6 +162,7 @@
       if (this.el.wheelSub && opts.sub) this.el.wheelSub.innerHTML = opts.sub;
       const tr = this.el.wheelTrack;
       tr.innerHTML = "";
+      tr.classList.toggle("locked", !!opts.locked);
       prizes.forEach((p, i) => {
         const own = (g.ship.prizes && g.ship.prizes[p.id]) || 0;
         const row = document.createElement("div");
@@ -170,13 +171,67 @@
           '<div class="p-emoji" style="box-shadow:inset 0 0 0 2px ' + p.seg + '55">' + p.icon + '</div>' +
           '<div class="p-body"><div class="p-name">' + p.name + '</div>' +
           '<div class="p-desc">' + p.desc + '</div></div>' +
-          (own ? '<div class="p-own">OWNED ×' + own + '</div>' : '');
+          (opts.locked ? '<div class="p-lock">🔒</div>'
+                       : (own ? '<div class="p-own">OWNED ×' + own + '</div>' : ''));
         tr.appendChild(row);
       });
       const b = this.el.spinBtn;
-      b.disabled = false; b.className = "big-cta wheel-spin";
-      b.textContent = "🎡  SPIN TO WIN";
+      const skip = this.el.wheelSkipBtn;
+      b.disabled = false;
+      if (opts.locked) {
+        b.className = "big-cta wheel-spin locked";
+        b.textContent = "🔓  UNLOCK TO SPIN";
+        if (skip) skip.classList.remove("hidden");
+        // fill in the localized price when running inside the Play app
+        if (TD.Entitlement && TD.Entitlement.price) {
+          TD.Entitlement.price().then((pr) => {
+            if (pr && this._wheel && this._wheel.locked) b.textContent = "🔓  UNLOCK TO SPIN · " + pr;
+          });
+        }
+      } else {
+        b.className = "big-cta wheel-spin";
+        b.textContent = "🎡  SPIN TO WIN";
+        if (skip) skip.classList.add("hidden");
+      }
       this.show("wheelScreen");
+    },
+    // routed from the spin button: unlock (locked) / claim (done) / spin
+    onSpin() {
+      const w = this._wheel;
+      if (!w) return;
+      if (w.locked) { this.unlockWheel(); return; }
+      if (w.done) this.claimWheel(); else this.spinWheel();
+    },
+    async unlockWheel() {
+      const w = this._wheel;
+      if (!w || !w.locked) return;
+      const b = this.el.spinBtn;
+      b.disabled = true; b.textContent = "… contacting store";
+      let ok = false;
+      try { ok = !!(TD.Entitlement && TD.Entitlement.purchase && await TD.Entitlement.purchase()); } catch (e) { ok = false; }
+      if (ok) {
+        // unlock in place — same ships become spinnable
+        w.locked = false;
+        this.el.wheelTrack.classList.remove("locked");
+        [...this.el.wheelTrack.children].forEach((r) => { const l = r.querySelector(".p-lock"); if (l) l.remove(); });
+        if (this.el.wheelSkipBtn) this.el.wheelSkipBtn.classList.add("hidden");
+        b.className = "big-cta wheel-spin"; b.disabled = false; b.textContent = "🎡  SPIN TO WIN";
+      } else {
+        b.disabled = false; b.textContent = "🔓  UNLOCK TO SPIN";
+        if (TD.Entitlement && TD.Entitlement.price) {
+          TD.Entitlement.price().then((pr) => { if (pr && this._wheel && this._wheel.locked) b.textContent = "🔓  UNLOCK TO SPIN · " + pr; });
+        }
+      }
+    },
+    // free players decline the unlock and launch in the default hull
+    skipWheel() {
+      const w = this._wheel;
+      if (!w) return;
+      const g = w.g;
+      this.el.wheelScreen.classList.add("hidden");
+      if (this.el.wheelSkipBtn) this.el.wheelSkipBtn.classList.add("hidden");
+      this._wheel = null;
+      g.applyBody(TD.BODIES.DEFAULT);
     },
     spinWheel() {
       const w = this._wheel;
