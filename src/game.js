@@ -64,6 +64,7 @@
       this.hitStop = 0; this.flashA = 0; this.flashColor = "#ffffff";
       this.vignetteA = 0; this.kickX = 0; this.kickY = 0;
       this.pops = []; this.floaters = []; this.zones = [];
+      this.deathFx = []; this.shipGone = false;
       // prize-wheel meta-powers
       this.ship.prizes = {};
       this.ship.chassis = TD.BODIES.DEFAULT;   // default hull until the welcome wheel resolves (paid) or stays (free)
@@ -480,16 +481,68 @@
     },
 
     gameOver() {
+      if (this.state === "over") return;
       this.state = "over";
       TD.Input.enabled = false;
       TD.Audio.setThrust(0);
       TD.Audio.gameOver();
-      this.explode(this.ship.x, this.ship.y, "#ff8a3b", this.ship.r * 2.2);
-      this.addPop(this.ship.x, this.ship.y, this.ship.r * 7, "#ff8a3b", { fill: "#ffffff", w: 6, life: 0.6 });
-      this.screenFlash("#ffffff", 0.6);
-      this.hitstop(0.12);
-      this.shake(20);
-      TD.UI.gameOver(this);
+      // wipe free samples so nothing can heal the corpse mid-explosion
+      this.pickups = [];
+      // the ship goes out in a blaze of neon (drawn by deathFx, updated in updateFx)
+      this.shipGone = true;
+      this.shipDeathExplosion(this.ship.x, this.ship.y);
+      this.screenFlash("#ffffff", 0.9);
+      this.hitstop(0.16);
+      this.shake(28);
+      // hold the receipt until the explosion has fully played out
+      clearTimeout(this._overT);
+      this._overT = setTimeout(() => { if (this.state === "over") TD.UI.gameOver(this); }, 2100);
+    },
+
+    // a juicy, neon ship-death blast: concentric spinning rings born from random
+    // points inside the hull, sparks in every direction, coins blasting out, and
+    // chromatic hull shards tumbling away.
+    shipDeathExplosion(x, y) {
+      const u = S.unit, R = this.ship.r;
+      this.deathFx = this.deathFx || [];
+      const neon = ["#37f0ff", "#ff2d6a", "#ffd23b", "#7af06a", "#c79bff", "#ff8a2b"];
+      // 1) concentric spinning rings, each cluster born at a random point in the hull
+      for (let i = 0; i < 6; i++) {
+        const a = M.rand(0, M.TAU), rr = M.rand(0, R * 0.6);
+        const ox = x + Math.cos(a) * rr, oy = y + Math.sin(a) * rr, col = neon[i % neon.length];
+        for (let j = 0; j < 2; j++) {
+          this.deathFx.push({ kind: "dring", x: ox, y: oy, r: R * (0.15 + j * 0.18),
+            vr: M.rand(150, 300) * u, rot: M.rand(0, M.TAU), rotSpeed: M.rand(-8, 8),
+            life: M.rand(0.8, 1.2) - j * 0.1, maxLife: 1.3, color: col,
+            lw: (4 - j * 1.2) * u, arcs: M.randInt(2, 4), gap: M.rand(0.5, 1.0) });
+        }
+      }
+      // a big white shockwave ring
+      this.deathFx.push({ kind: "dring", x, y, r: R * 0.5, vr: 560 * u, rot: 0, rotSpeed: 2.5,
+        life: 0.6, maxLife: 0.6, color: "#ffffff", lw: 4 * u, arcs: 1, gap: 0 });
+      // 2) sparks in all directions
+      for (let i = 0; i < 80; i++) {
+        const a = M.rand(0, M.TAU), sp = M.rand(120, 640) * u;
+        this.deathFx.push({ kind: "dspark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: M.rand(0.45, 1.15), maxLife: 1.15, r: M.rand(1.5, 3.6) * u,
+          color: neon[(Math.random() * neon.length) | 0] });
+      }
+      // 3) coins blasting out at medium speed in all directions
+      for (let i = 0; i < 30; i++) {
+        const a = M.rand(0, M.TAU), sp = M.rand(150, 330) * u;
+        this.deathFx.push({ kind: "dcoin", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: M.rand(1.2, 1.8), maxLife: 1.8, r: M.rand(5, 8) * u,
+          spin: M.rand(0, M.TAU), spinV: M.rand(-9, 9), big: M.chance(0.25) });
+      }
+      // 4) tumbling chromatic hull shards
+      for (let i = 0; i < 10; i++) {
+        const a = M.rand(0, M.TAU), sp = M.rand(80, 300) * u;
+        this.deathFx.push({ kind: "dshard", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: M.rand(0.8, 1.4), maxLife: 1.4, r: M.rand(4, 9) * u,
+          rot: M.rand(0, M.TAU), rotV: M.rand(-10, 10), color: neon[(Math.random() * neon.length) | 0] });
+      }
+      this.screenFlash("#ff6a13", 0.4);
+      if (TD.Audio.explosion) TD.Audio.explosion(R * 3.2);
     },
 
     /* ---------- coin / xp ---------- */
@@ -582,6 +635,18 @@
       if (this.floaters && this.floaters.length) {
         for (const f of this.floaters) { f.t += dt; f.life -= dt; f.y += f.vy * dt; f.vy *= Math.exp(-2.6 * dt); }
         this.floaters = this.floaters.filter((f) => f.life > 0);
+      }
+      if (this.deathFx && this.deathFx.length) {
+        for (const f of this.deathFx) {
+          f.life -= dt;
+          if (f.kind === "dring") { f.r += f.vr * dt; f.vr *= Math.exp(-1.6 * dt); f.rot += f.rotSpeed * dt; }
+          else {
+            f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= Math.exp(-1.8 * dt); f.vy *= Math.exp(-1.8 * dt);
+            if (f.kind === "dcoin") { f.vy += 70 * S.unit * dt; f.spin += f.spinV * dt; } // a little gravity + spin
+            if (f.kind === "dshard") f.rot += f.rotV * dt;
+          }
+        }
+        this.deathFx = this.deathFx.filter((f) => f.life > 0);
       }
     },
     spark(x, y, color, n, scale) {
@@ -1043,6 +1108,7 @@
         this.renderShip(ctx);
         this.renderParticles(ctx);
         this.renderPops(ctx);
+        this.renderDeathFx(ctx);
         this.renderFloaters(ctx);
         this.renderReticle(ctx);
       }
@@ -1061,6 +1127,43 @@
       }
 
       if (this.state === "paused") this.renderPausedOverlay(ctx);
+    },
+
+    renderDeathFx(ctx) {
+      if (!this.deathFx || !this.deathFx.length) return;
+      ctx.save();
+      for (const f of this.deathFx) {
+        const k = M.clamp(f.life / f.maxLife, 0, 1);
+        // additive neon for the energy bits; coins stay solid gold
+        ctx.globalCompositeOperation = f.kind === "dcoin" ? "source-over" : "lighter";
+        if (f.kind === "dring") {
+          ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
+          ctx.globalAlpha = k; ctx.strokeStyle = f.color; ctx.lineWidth = Math.max(0.5, f.lw * k);
+          ctx.shadowColor = f.color; ctx.shadowBlur = 16;
+          if (f.arcs <= 1) { ctx.beginPath(); ctx.arc(0, 0, f.r, 0, M.TAU); ctx.stroke(); }
+          else { const step = M.TAU / f.arcs, seg = Math.max(0.1, step - f.gap);
+            for (let i = 0; i < f.arcs; i++) { const a0 = i * step; ctx.beginPath(); ctx.arc(0, 0, f.r, a0, a0 + seg); ctx.stroke(); } }
+          ctx.restore();
+        } else if (f.kind === "dspark") {
+          ctx.globalAlpha = k; ctx.strokeStyle = f.color; ctx.lineWidth = f.r;
+          ctx.lineCap = "round"; ctx.shadowColor = f.color; ctx.shadowBlur = 10;
+          ctx.beginPath(); ctx.moveTo(f.x - f.vx * 0.03, f.y - f.vy * 0.03); ctx.lineTo(f.x, f.y); ctx.stroke();
+        } else if (f.kind === "dshard") {
+          ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.globalAlpha = k;
+          ctx.fillStyle = f.color; ctx.shadowColor = f.color; ctx.shadowBlur = 12;
+          ctx.beginPath(); ctx.moveTo(f.r, 0); ctx.lineTo(-f.r * 0.7, f.r * 0.6); ctx.lineTo(-f.r * 0.7, -f.r * 0.6); ctx.closePath(); ctx.fill();
+          ctx.restore();
+        } else if (f.kind === "dcoin") {
+          ctx.save(); ctx.translate(f.x, f.y); ctx.globalAlpha = k;
+          const w = Math.abs(Math.cos(f.spin)) * f.r + f.r * 0.25;   // spin = horizontal squash
+          ctx.shadowColor = "#ffcf33"; ctx.shadowBlur = 12;
+          ctx.fillStyle = f.big ? "#ffe680" : "#ffcf33";
+          ctx.beginPath(); ctx.ellipse(0, 0, w, f.r, 0, 0, M.TAU); ctx.fill();
+          ctx.strokeStyle = "#fff6c0"; ctx.lineWidth = 1.2; ctx.stroke();
+          ctx.restore();
+        }
+      }
+      ctx.restore();
     },
 
     renderPops(ctx) {
@@ -1103,6 +1206,7 @@
 
     renderShip(ctx) {
       const s = this.ship;
+      if (this.shipGone) return;   // ship has detonated — the deathFx is the ship now
       if (s.invuln > 0 && Math.floor(s.invuln * 20) % 2 === 0 && s.hull > 0 && this.state === "play") {
         // blink during i-frames (skip draw some frames) but still show shield
       }
