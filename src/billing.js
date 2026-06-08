@@ -27,12 +27,19 @@
   // 1) restore cached entitlement immediately (offline-friendly)
   try { unlocked = localStorage.getItem(LS_KEY) === "1"; } catch (e) {}
 
-  // 2) dev/testing override via query string
+  // 2) obscured dev/testing override: ?unlock=<digits> only takes effect when those
+  //    digits sum to the digit-sum of today's date (YYYYMMDD). This is obscurity ONLY
+  //    — the rule lives in this public file; real entitlement comes from Play Billing.
+  //    A non-matching value (incl. the old "1") locks, which is handy for QA.
+  function digitSum(v) { let s = 0; for (const ch of String(v)) { if (ch >= "0" && ch <= "9") s += +ch; } return s; }
+  function todaysDateKey() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
   try {
     const q = new URLSearchParams(location.search);
     if (q.has("unlock")) {
-      unlocked = q.get("unlock") !== "0";
-      try { localStorage.setItem(LS_KEY, unlocked ? "1" : "0"); } catch (e) {}
+      const v = q.get("unlock");
+      const ok = /\d/.test(v) && digitSum(v) === digitSum(todaysDateKey());
+      unlocked = ok;
+      try { localStorage.setItem(LS_KEY, ok ? "1" : "0"); } catch (e) {}
     }
   } catch (e) {}
 
