@@ -131,6 +131,34 @@
       },
     },
 
+    /* Clearance Drone — yellow glass strafer (modeled on the Rooster's comb drones):
+       holds ~200px, sidesteps, spits yellow bullets, pops in a single hit. */
+    clearance: {
+      name: "Clearance Drone", color: "#ffd23b", baseHp: 1, fixedHp: 1, contact: 12, score: 30, coins: 2,
+      spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.color = "#ffd23b"; e.t = 0; e.fire = M.rand(0.4, 0.9); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
+      update(e, game, dt) {
+        const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
+        const ideal = 200 * u;
+        const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);
+        e.flip -= dt; if (e.flip <= 0) { e.flip = M.rand(1.4, 2.6); e.sdir *= -1; }
+        const latAng = d.ang + Math.PI / 2 * e.sdir;
+        const vx = Math.cos(d.ang) * err + Math.cos(latAng) * 0.9;
+        const vy = Math.sin(d.ang) * err + Math.sin(latAng) * 0.9;
+        steer(e, Math.atan2(vy, vx), 760 * u, dt, 250 * u);
+        e.vx *= 0.92; e.vy *= 0.92;
+        e.ang = Math.atan2(e.vy, e.vx);
+        e.fire -= dt;
+        if (e.fire <= 0) { e.fire = M.rand(0.7, 1.1); enemyShot(game, e.x, e.y, d.ang + M.rand(-0.05, 0.05), 280, 6, "#ffd23b", 4); }
+      },
+      draw(e, ctx) {
+        ctx.rotate(e.ang);
+        ctx.beginPath(); ctx.ellipse(0, 0, e.r * 1.25, e.r * 0.78, 0, 0, M.TAU);
+        neon(ctx, e.color, "rgba(255,210,59,.22)", 2.4);
+        ctx.beginPath(); ctx.moveTo(e.r * 1.2, 0); ctx.lineTo(e.r * 0.45, e.r * 0.4); ctx.lineTo(e.r * 0.45, -e.r * 0.4); ctx.closePath();
+        ctx.fillStyle = "#fff3b0"; ctx.fill();
+      },
+    },
+
     /* Fidget Sentinel — radial bullet bursts */
     spinner: {
       name: "Fidget Sentinel", color: "#3ad6ff", baseHp: 30, contact: 12, score: 55, coins: 4,
@@ -584,7 +612,7 @@
         if (e.spawnT <= 0 && game.enemies.length < 28) { e.spawnT = 3.2;
           for (let i = 0; i < 2; i++) { const a = M.rand(0, M.TAU);
             const m = game.spawnEnemy(M.chance(0.5) ? "seeker" : "weaver", e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, { hpScale: e.hpScale * 0.7 });
-            m.hp = 1; m.maxHp = 1; }   // Hydra minions are glass: 1 HP each
+            m.hp = 1; m.maxHp = 1; m.color = "#7af06a"; }   // Hydra minions: glass (1 HP) + green
           game.toast("🐉 Hydra spat out minions!", "bad"); } },
       draw(e, ctx) { const pls = 1 + Math.sin(e.t * 4) * 0.05; ctx.scale(pls, pls);
         poly(ctx, 7, e.r, e.t * 0.5); neon(ctx, e.color, "rgba(122,240,106,.18)", 3);
@@ -1077,6 +1105,7 @@
       if (level >= 3) p.push(["spinner", 3]);
       if (level >= 4) p.push(["mine", 2]);
       if (level >= 5) p.push(["splitter", 3]);
+      if (level >= 5) p.push(["clearance", 3]);
       if (level >= 6) p.push(["sniper", 3]);
       if (level >= 8) p.push(["bulwark", 2]);
       return p;

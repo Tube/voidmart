@@ -251,7 +251,7 @@
       def.spawn(e);
       const scale = opts.hpScale || this.difficulty();
       e.hpScale = scale;
-      e.maxHp = def.baseHp * scale * e.hpMul * (def.isBoss ? 1 : 1);
+      e.maxHp = def.fixedHp != null ? def.fixedHp : def.baseHp * scale * e.hpMul;
       e.hp = e.maxHp;
       e.contact = def.contact * (1 + (scale - 1) * 0.35) * 0.8;
       this.enemies.push(e);
