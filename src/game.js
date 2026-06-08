@@ -422,7 +422,7 @@
       s.shield = Math.min(this.fieldCap(), Math.max(s.shield, s.stats.maxShield));
     },
 
-    damageShip(dmg, srcAng) {
+    damageShip(dmg, srcAng, hullResist) {
       const s = this.ship;
       if (s.invuln > 0 || this.state !== "play") return;
       if (s.stats.dodge > 0 && M.chance(s.stats.dodge)) { s.dodgeFlash = 0.5; return; }
@@ -442,6 +442,8 @@
         if (s.shield <= 0) this.onShieldBreak();
       }
       if (remain > 0) {
+        // collision/ram resistance protects the HULL, not the field (which already took full damage above)
+        if (hullResist != null) remain *= hullResist;
         s.hull -= remain;
         s.invuln = Math.max(s.invuln, 0.45);
         this.shake(11); this.spark(s.x, s.y, "#ff6a6a", 8, 1.5);
@@ -454,6 +456,16 @@
         TD.Audio.playerHit();
         if (s.hull <= 0) { s.hull = 0; this.gameOver(); }
       }
+    },
+    // Enemies caught mid-charge shrug off the player's ram/collision damage:
+    // common −50%, miniboss −75%, boss −100% (immune). Keyed on the same charge
+    // states that give them their heavier glow (charging / rolling / dash|charge mode).
+    chargeCollisionResist(e) {
+      const m = e.mode;
+      const charging = e.charging > 0 || e.rolling > 0 ||
+        m === "charge" || m === "dash" || m === "pounce" || m === "gallop";
+      if (!charging) return 1;
+      return e.def.isBoss ? 0 : e.def.isMini ? 0.25 : 0.5;
     },
     onShieldBreak() {
       const s = this.ship;
@@ -1009,17 +1021,20 @@
           const rvx = s.vx - (e.vx || 0), rvy = s.vy - (e.vy || 0);
           const relSpeed = Math.hypot(rvx, rvy);
           const velF = M.clamp(0.4 + relSpeed / (280 * S.unit), 0.4, 2.4);
-          // ram damage to enemy
+          // ram damage to enemy (reduced — or nullified — while the enemy is charging)
           if (s.stats.bodyDmg > 0 && (e.contactCD || 0) <= 0) {
-            this.damageEnemy(e, s.stats.bodyDmg * velF, false, e);
+            const cr = this.chargeCollisionResist(e);
+            if (cr > 0) this.damageEnemy(e, s.stats.bodyDmg * velF * cr, false, e);
             e.contactCD = 0.4;
           }
           if (e.dead) continue;
+          // collision damage to the player: field takes it in full, ramArmor protects only the hull
+          const hullResist = Math.max(0.125, 1 - s.stats.ramArmor);
           if (e.def.touchKill) {
             this.killEnemy(e);
-            this.damageShip(e.contact * velF * Math.max(0.125, 1 - s.stats.ramArmor));
+            this.damageShip(e.contact * velF, null, hullResist);
           } else if ((e.contactHitCD || 0) <= 0) {
-            this.damageShip(e.contact * velF * Math.max(0.125, 1 - s.stats.ramArmor));
+            this.damageShip(e.contact * velF, null, hullResist);
             e.contactHitCD = 0.55;
             // small knockback
             const a = Math.atan2(dl.dy, dl.dx);
