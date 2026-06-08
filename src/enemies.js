@@ -910,7 +910,7 @@
     z_rooster: {
       name: "Cock-a-Doodle Dropshipper", color: "#ff5a4d", baseHp: 1200, contact: 26, score: 1850, coins: 90, isBoss: true,
       banner: ["🐓 COCK-A-DOODLE DROPSHIPPER", "Crows at dawn. Ships at noon."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 28 * u; e.t = 0; e.fan = 1.0; e.crow = 6; e.strut = 0; },
+      spawn(e) { const u = TD.Screen.unit; e.r = 28 * u; e.t = 0; e.fan = 1.0; e.crow = 6; e.strut = 0; e.combTimer = 5; e.combOut = false; e.combShips = []; },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
         steer(e, d.ang + Math.PI / 2 * Math.sin(e.t), 110 * u, dt, 90 * u); e.vx *= 0.94; e.vy *= 0.94; e.ang = d.ang;
@@ -919,17 +919,74 @@
         e.crow -= dt;
         if (e.crow <= 0) { e.crow = 7; e.crowing = 0.6; }
         if (e.crowing > 0) { e.crowing -= dt; if (e.crowing <= 0) { const n = 24, off = M.rand(0, 1); for (let i = 0; i < n; i++) enemyShot(game, e.x, e.y, (i / n + off) * M.TAU, 220, 11, "#ffd07a", 6); game.shake(7); game.addPop(e.x, e.y, e.r * 3, "#ffd07a", { w: 4 }); } }
+        // --- the comb: 3 little drones that launch together, strafe & shoot,
+        // return to his head when destroyed, then relaunch 10s after all 3 are back ---
+        if (!e.combOut) {
+          e.combTimer -= dt;
+          if (e.combTimer <= 0) {
+            e.combShips = [];
+            for (let i = 0; i < 3; i++) {
+              const bx = -e.r * 0.1 + i * e.r * 0.25, by = -e.r * 0.8;
+              const ca = Math.cos(e.ang), sa = Math.sin(e.ang);
+              const wx = e.x + bx * ca - by * sa, wy = e.y + bx * sa + by * ca;
+              const c = game.spawnEnemy("z_rooster_comb", wx, wy, { hpScale: e.hpScale * 0.5 });
+              const oa = Math.atan2(wy - e.y, wx - e.x);     // burst outward from his head
+              c.vx = Math.cos(oa) * 260 * u; c.vy = Math.sin(oa) * 260 * u;
+              c.sdir = i === 1 ? 1 : -1;
+              e.combShips.push(c);
+            }
+            e.combOut = true; game.shake(6); game.toast("🐓 The comb takes flight!", "bad");
+          }
+        } else if (e.combShips.filter((c) => c && !c.dead).length === 0) {
+          e.combOut = false; e.combTimer = 10;   // all back home → relaunch in 10s
+        }
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
         const crowing = e.crowing > 0;
         poly(ctx, 5, e.r, 0); neon(ctx, crowing ? "#ffd07a" : e.color, "rgba(255,90,77,.16)", 3);
-        // comb (3 bumps on top)
+        // comb (3 bumps on top) — each bump shows only while that drone is home
         ctx.fillStyle = "#ff2d4f"; ctx.shadowColor = "#ff2d4f"; ctx.shadowBlur = 8;
-        for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-e.r * 0.1 + i * e.r * 0.25, -e.r * 0.8, e.r * 0.16, 0, M.TAU); ctx.fill(); } ctx.shadowBlur = 0;
+        for (let i = 0; i < 3; i++) {
+          const home = !e.combOut || !e.combShips || !e.combShips[i] || e.combShips[i].dead;
+          if (!home) continue;
+          ctx.beginPath(); ctx.arc(-e.r * 0.1 + i * e.r * 0.25, -e.r * 0.8, e.r * 0.16, 0, M.TAU); ctx.fill();
+        }
+        ctx.shadowBlur = 0;
         // beak + tail feathers
         ctx.beginPath(); ctx.moveTo(e.r * 0.8, 0); ctx.lineTo(e.r * 1.3, e.r * 0.12); ctx.lineTo(e.r * 0.8, e.r * 0.2); ctx.closePath(); ctx.fillStyle = "#ffc223"; ctx.fill();
         for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-e.r * 0.7, 0); ctx.lineTo(-e.r * 1.5, i * e.r * 0.6); ctx.strokeStyle = "#37b6ff"; ctx.lineWidth = 3; ctx.stroke(); }
+      },
+      die(e, game) { if (e.combShips) for (const c of e.combShips) if (c && !c.dead) game.killEnemy(c); },
+    },
+
+    /* 🐔 ROOSTER COMB DRONE — a launched comb-bump: strafes the player at ~200px,
+       sidesteps laterally, spits red bullets. Killing it sends it back to his head.
+       Boss-spawned only (never in the wave director pool). */
+    z_rooster_comb: {
+      name: "Comb Drone", color: "#ff2d4f", baseHp: 130, contact: 14, score: 60, coins: 8,
+      spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.t = 0; e.fire = M.rand(0.3, 0.7); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
+      update(e, game, dt) {
+        const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
+        const ideal = 200 * u;
+        // hold ~200px: radial term approaches/retreats, lateral term strafes sideways
+        const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);
+        e.flip -= dt; if (e.flip <= 0) { e.flip = M.rand(1.4, 2.6); e.sdir *= -1; }
+        const latAng = d.ang + Math.PI / 2 * e.sdir;
+        const vx = Math.cos(d.ang) * err + Math.cos(latAng) * 0.9;
+        const vy = Math.sin(d.ang) * err + Math.sin(latAng) * 0.9;
+        steer(e, Math.atan2(vy, vx), 900 * u, dt, 300 * u);
+        e.vx *= 0.92; e.vy *= 0.92;
+        e.ang = Math.atan2(e.vy, e.vx);
+        e.fire -= dt;
+        if (e.fire <= 0) { e.fire = M.rand(0.5, 0.8); enemyShot(game, e.x, e.y, d.ang + M.rand(-0.06, 0.06), 300, 7, "#ff2d4f", 4); }
+      },
+      draw(e, ctx) {
+        ctx.rotate(e.ang);
+        ctx.beginPath(); ctx.ellipse(0, 0, e.r * 1.25, e.r * 0.78, 0, 0, M.TAU);
+        neon(ctx, e.color, "rgba(255,45,79,.22)", 2.4);
+        ctx.beginPath(); ctx.moveTo(e.r * 1.2, 0); ctx.lineTo(e.r * 0.45, e.r * 0.4); ctx.lineTo(e.r * 0.45, -e.r * 0.4); ctx.closePath();
+        ctx.fillStyle = "#ffd07a"; ctx.fill();
       },
     },
 

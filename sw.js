@@ -1,5 +1,5 @@
 /* VOIDMART — service worker (offline app shell for PWA / TWA install) */
-const CACHE = "voidmart-v7";
+const CACHE = "voidmart-v8";
 const ASSETS = [
   "./",
   "./index.html",
