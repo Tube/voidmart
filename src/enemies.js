@@ -583,7 +583,8 @@
         steer(e, d.ang, 40 * u, dt, 48 * u); e.spawnT -= dt;
         if (e.spawnT <= 0 && game.enemies.length < 28) { e.spawnT = 3.2;
           for (let i = 0; i < 2; i++) { const a = M.rand(0, M.TAU);
-            game.spawnEnemy(M.chance(0.5) ? "seeker" : "weaver", e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, { hpScale: e.hpScale * 0.7 }); }
+            const m = game.spawnEnemy(M.chance(0.5) ? "seeker" : "weaver", e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, { hpScale: e.hpScale * 0.7 });
+            m.hp = 1; m.maxHp = 1; }   // Hydra minions are glass: 1 HP each
           game.toast("🐉 Hydra spat out minions!", "bad"); } },
       draw(e, ctx) { const pls = 1 + Math.sin(e.t * 4) * 0.05; ctx.scale(pls, pls);
         poly(ctx, 7, e.r, e.t * 0.5); neon(ctx, e.color, "rgba(122,240,106,.18)", 3);
