@@ -1,56 +1,77 @@
 /* ============================================================
    VOIDMART — billing.js
-   Freemium entitlement. The "full unlock" (currently: the welcome
-   ship wheel) is sold as a one-time managed product through Google
-   Play Billing, surfaced to the web app via the Digital Goods API
-   inside the Trusted Web Activity.
+   Freemium entitlement. The "full unlock" (welcome ship wheel, shop
+   reroll, legendary Doorbusters) is sold as a one-time managed product
+   through Google Play Billing, surfaced to the web app via the Digital
+   Goods API inside the Trusted Web Activity.
 
-   Outside the Play app (plain browser) the Digital Goods API is
-   absent, so the player simply stays on the free tier. Entitlement
-   is cached in localStorage and re-verified from Play on launch so
-   it survives reinstalls.
+   Two independent sources of entitlement:
+     • owned  — a REAL Play purchase. Persistent; re-confirmed from Play
+                via listPurchases(). Never expires on a date change.
+     • devKey — the obscured ?unlock=<digits> testing grant. Valid only
+                while the digits sum to the digit-sum of the date as
+                YYYYMMDD, accepting today ±1 day (local). Re-validated
+                during long sessions, so a stale key re-locks itself.
 
-   Dev/testing: append ?unlock=1 to force-unlock (or ?unlock=0 to
-   clear) when testing the paid path in a browser.
+   A long-running / forgotten session re-evaluates entitlement when the
+   tab is refocused and hourly, so the date-key reflects the CURRENT date
+   even past midnight — while a paid unlock keeps working regardless.
    ============================================================ */
 (function () {
   "use strict";
   const TD = (window.TD = window.TD || {});
 
-  const SKU = "full_unlock";                       // managed product id in Play Console
-  const STORE = "https://play.google.com/billing"; // Play Billing payment method
-  const LS_KEY = "voidmart_unlocked";
+  const SKU = "full_unlock";
+  const STORE = "https://play.google.com/billing";
+  const LS_OWNED = "voidmart_owned";      // real Play purchase (persistent)
+  const LS_DEVKEY = "voidmart_devkey";    // obscured dev key (date-validated)
+  const LS_LEGACY = "voidmart_unlocked";  // pre-split flag — cleared (real owners restore via Play)
 
-  let unlocked = false;
+  let owned = false;     // confirmed Play purchase
+  let devKey = null;     // digits passed via ?unlock=, if currently held
+  let unlocked = false;  // effective entitlement (owned || valid devKey)
   let service = null;
 
-  // 1) restore cached entitlement immediately (offline-friendly)
-  try { unlocked = localStorage.getItem(LS_KEY) === "1"; } catch (e) {}
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
 
-  // 2) obscured dev/testing override: ?unlock=<digits> only takes effect when those
-  //    digits sum to the digit-sum of today's date (YYYYMMDD). This is obscurity ONLY
-  //    — the rule lives in this public file; real entitlement comes from Play Billing.
-  //    A non-matching value (incl. the old "1") locks, which is handy for QA.
   function digitSum(v) { let s = 0; for (const ch of String(v)) { if (ch >= "0" && ch <= "9") s += +ch; } return s; }
-  // digit-sum of (today + dayOffset) written YYYYMMDD, using the device's LOCAL date
-  function dateSum(dayOffset) {
-    const d = new Date(); d.setDate(d.getDate() + dayOffset);
-    return digitSum(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate());
+  // digit-sum of (today + dayOffset) written YYYYMMDD, in the device's LOCAL date
+  function dateSum(off) { const d = new Date(); d.setDate(d.getDate() + off); return digitSum(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()); }
+  // a dev key is valid if its digits sum to today's date-sum, ±1 day (covers tz + midnight)
+  function keyValid(v) { return !!v && /\d/.test(v) && [dateSum(-1), dateSum(0), dateSum(1)].indexOf(digitSum(v)) !== -1; }
+
+  // Recompute effective entitlement against the CURRENT date; drop a stale dev key.
+  function recompute() {
+    if (devKey && !keyValid(devKey)) { devKey = null; ls.del(LS_DEVKEY); }  // refresh: stale key re-locks
+    unlocked = owned || keyValid(devKey);
+    return unlocked;
   }
+
+  // --- restore persisted state ---
+  owned = ls.get(LS_OWNED) === "1";
+  ls.del(LS_LEGACY);                       // don't trust the old combined flag; real purchases restore via Play
+  devKey = ls.get(LS_DEVKEY);
+
+  // --- obscured dev/testing override via query string ---
   try {
     const q = new URLSearchParams(location.search);
     if (q.has("unlock")) {
       const v = q.get("unlock");
-      // accept today ±1 day so the key survives midnight and any timezone offset
-      const ok = /\d/.test(v) && [dateSum(-1), dateSum(0), dateSum(1)].indexOf(digitSum(v)) !== -1;
-      unlocked = ok;
-      try { localStorage.setItem(LS_KEY, ok ? "1" : "0"); } catch (e) {}
+      if (keyValid(v)) { devKey = v; ls.set(LS_DEVKEY, v); }   // grant for the current date window
+      else { devKey = null; ls.del(LS_DEVKEY); }               // wrong/old key (incl. "1") clears the grant
     }
   } catch (e) {}
 
-  function setUnlocked(v) {
-    unlocked = !!v;
-    try { localStorage.setItem(LS_KEY, unlocked ? "1" : "0"); } catch (e) {}
+  recompute();
+
+  function setUnlocked(v) {                 // test/restore hook → treated as a real purchase
+    owned = !!v;
+    if (owned) ls.set(LS_OWNED, "1"); else ls.del(LS_OWNED);
+    recompute();
   }
 
   async function getService() {
@@ -75,16 +96,17 @@
     return null;
   }
 
-  // Re-verify ownership from Play (restores entitlement after reinstall).
+  // Re-confirm ownership from Play (restores after reinstall; catches a just-completed purchase).
+  // Ownership is sticky once confirmed — a transient/offline empty result never revokes a paid unlock.
   async function refresh() {
     const svc = await getService();
-    if (!svc) return unlocked;
-    try {
-      const purchases = await svc.listPurchases();
-      const owned = purchases.some((p) => p.itemId === SKU);
-      if (owned) setUnlocked(true);
-    } catch (e) {}
-    return unlocked;
+    if (svc) {
+      try {
+        const purchases = await svc.listPurchases();
+        if (purchases.some((p) => p.itemId === SKU)) { owned = true; ls.set(LS_OWNED, "1"); }
+      } catch (e) {}
+    }
+    return recompute();
   }
 
   // Launch the Play purchase flow. Resolves true if the unlock is owned.
@@ -104,7 +126,7 @@
       const request = new PaymentRequest(methodData, detailsInit);
       const response = await request.show();
       await response.complete("success");
-      setUnlocked(true);
+      owned = true; ls.set(LS_OWNED, "1"); recompute();
       if (TD.Game && TD.Game.toast) TD.Game.toast("🎉 Unlocked! Ships wheel is yours.", "good");
       return true;
     } catch (e) {
@@ -112,15 +134,26 @@
     }
   }
 
+  // Re-evaluate during long / forgotten sessions: cheap date-key recompute on a timer,
+  // and a full re-check (incl. Play) whenever the app is brought back to the foreground.
+  function revalidate(full) { recompute(); if (full) refresh(); }
+  try {
+    if (typeof setInterval === "function") setInterval(() => revalidate(false), 60 * 60 * 1000); // hourly
+    if (typeof document !== "undefined" && document.addEventListener) {
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) revalidate(true); });
+    }
+  } catch (e) {}
+
   TD.Entitlement = {
     SKU,
     isUnlocked() { return unlocked; },
     setUnlocked,
     refresh,
+    revalidate,
     purchase,
     price,
   };
 
-  // Best-effort restore on load (no-op outside the Play app).
+  // Best-effort Play restore on load (no-op outside the Play app).
   refresh();
 })();
