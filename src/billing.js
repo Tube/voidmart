@@ -32,12 +32,17 @@
   //    — the rule lives in this public file; real entitlement comes from Play Billing.
   //    A non-matching value (incl. the old "1") locks, which is handy for QA.
   function digitSum(v) { let s = 0; for (const ch of String(v)) { if (ch >= "0" && ch <= "9") s += +ch; } return s; }
-  function todaysDateKey() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+  // digit-sum of (today + dayOffset) written YYYYMMDD, using the device's LOCAL date
+  function dateSum(dayOffset) {
+    const d = new Date(); d.setDate(d.getDate() + dayOffset);
+    return digitSum(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate());
+  }
   try {
     const q = new URLSearchParams(location.search);
     if (q.has("unlock")) {
       const v = q.get("unlock");
-      const ok = /\d/.test(v) && digitSum(v) === digitSum(todaysDateKey());
+      // accept today ±1 day so the key survives midnight and any timezone offset
+      const ok = /\d/.test(v) && [dateSum(-1), dateSum(0), dateSum(1)].indexOf(digitSum(v)) !== -1;
       unlocked = ok;
       try { localStorage.setItem(LS_KEY, ok ? "1" : "0"); } catch (e) {}
     }
