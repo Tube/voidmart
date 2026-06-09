@@ -119,7 +119,11 @@
     }
     let item = null;
     try { const d = await svc.getDetails([SKU]); item = d && d[0]; } catch (e) {}
-    if (!item) return false;
+    if (!item) {
+      // service exists but the product didn't load — usually not Active yet / still propagating
+      if (TD.Game && TD.Game.toast) TD.Game.toast("⚠️ Couldn't load the offer — try again in a moment.", "bad");
+      return false;
+    }
     const methodData = [{ supportedMethods: STORE, data: { sku: SKU } }];
     const detailsInit = { total: { label: item.title || "Full Unlock", amount: item.price } };
     try {
