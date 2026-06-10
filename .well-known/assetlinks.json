@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.voidmart",
       "sha256_cert_fingerprints": [
-        "4F:45:44:C5:38:F8:14:78:F1:33:8A:4D:7B:02:D2:4D:EE:BD:8E:E9:2D:BF:A4:A9:46:D8:1F:C2:79:C4:56:36"
+        "4F:45:44:C5:38:F8:14:78:F1:33:8A:4D:7B:02:D2:4D:EE:BD:8E:E9:2D:BF:A4:A9:46:D8:1F:C2:79:C4:56:36",
+        "51:7B:A0:23:28:A0:46:34:8A:9D:29:3D:C0:D0:29:93:D5:F7:FF:FB:BA:06:3F:6B:83:4C:A9:08:7C:05:AD:02"
       ]
     }
   }
