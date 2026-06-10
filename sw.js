@@ -1,5 +1,9 @@
-/* VOIDMART — service worker (offline app shell for PWA / TWA install) */
-const CACHE = "voidmart-v16";
+/* VOIDMART — service worker (offline app shell for PWA / TWA install)
+   Strategy: precache the whole app shell on install (so it runs offline after the
+   first online launch), then stale-while-revalidate at runtime — serve the local
+   copy instantly and refresh it in the background while online, so the most recent
+   grab is always stored locally and the game launches with no network. */
+const CACHE = "voidmart-v17";
 const ASSETS = [
   "./",
   "./index.html",
@@ -43,23 +47,25 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
-  e.respondWith(
-    caches.match(req).then((hit) => {
-      if (hit) return hit;
-      return fetch(req)
-        .then((res) => {
-          // runtime-cache same-origin GETs (and opportunistically Google Fonts)
-          const url = new URL(req.url);
-          const cacheable = url.origin === location.origin ||
-            url.origin === "https://fonts.googleapis.com" ||
-            url.origin === "https://fonts.gstatic.com";
-          if (cacheable && res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match("./Voidmart.html"));
-    })
-  );
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === location.origin;
+  const isFont = url.origin === "https://fonts.googleapis.com" || url.origin === "https://fonts.gstatic.com";
+  if (!sameOrigin && !isFont) return; // leave everything else to the network
+
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(req);
+    // refresh the local copy in the background (when online)
+    const fromNetwork = fetch(req).then((res) => {
+      if (res && res.status === 200) cache.put(req, res.clone());
+      return res;
+    }).catch(() => null);
+
+    if (cached) { e.waitUntil(fromNetwork); return cached; }   // stale-while-revalidate
+    const fresh = await fromNetwork;
+    if (fresh) return fresh;
+    // offline and not cached yet → serve the app page for navigations
+    if (req.mode === "navigate") return (await cache.match("./Voidmart.html")) || Response.error();
+    return Response.error();
+  })());
 });
