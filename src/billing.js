@@ -21,7 +21,10 @@
   "use strict";
   const TD = (window.TD = window.TD || {});
 
-  const SKU = "full_unlock";
+  // Play may key the item on the product id (underscore) or the purchase-option id
+  // (hyphen — Play rejects underscores there), so we match either spelling.
+  const SKUS = ["full_unlock", "full-unlock"];
+  const SKU = SKUS[0];
   const STORE = "https://play.google.com/billing";
   const LS_OWNED = "voidmart_owned";      // real Play purchase (persistent)
   const LS_DEVKEY = "voidmart_devkey";    // obscured dev key (date-validated)
@@ -83,18 +86,21 @@
     return service;
   }
 
+  // Fetch details for whichever id Play recognizes (product id or purchase-option id).
+  async function fetchItem(svc) {
+    try { const d = await svc.getDetails(SKUS); if (d && d.length) return d[0]; } catch (e) {}
+    return null;
+  }
+
   // Localized price string for the unlock (e.g. "$0.99"), or null outside Play.
   async function price() {
     const svc = await getService();
     if (!svc) return null;
-    try {
-      const d = await svc.getDetails([SKU]);
-      const it = d && d[0];
-      if (it && it.price) {
-        return new Intl.NumberFormat(undefined, { style: "currency", currency: it.price.currency })
-          .format(Number(it.price.value));
-      }
-    } catch (e) {}
+    const it = await fetchItem(svc);
+    if (it && it.price) {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: it.price.currency })
+        .format(Number(it.price.value));
+    }
     return null;
   }
 
@@ -105,7 +111,7 @@
     if (svc) {
       try {
         const purchases = await svc.listPurchases();
-        if (purchases.some((p) => p.itemId === SKU)) { owned = true; ls.set(LS_OWNED, "1"); }
+        if (purchases.some((p) => SKUS.indexOf(p.itemId) !== -1)) { owned = true; ls.set(LS_OWNED, "1"); }
       } catch (e) {}
     }
     return recompute();
@@ -119,14 +125,13 @@
       if (TD.Game && TD.Game.toast) TD.Game.toast("⚠️ Unlock is only available in the Play Store app.", "bad");
       return false;
     }
-    let item = null;
-    try { const d = await svc.getDetails([SKU]); item = d && d[0]; } catch (e) {}
+    const item = await fetchItem(svc);
     if (!item) {
       // service exists but the product didn't load — usually not Active yet / still propagating
       if (TD.Game && TD.Game.toast) TD.Game.toast("⚠️ Couldn't load the offer — try again in a moment.", "bad");
       return false;
     }
-    const methodData = [{ supportedMethods: STORE, data: { sku: SKU } }];
+    const methodData = [{ supportedMethods: STORE, data: { sku: item.itemId || SKU } }];
     const detailsInit = { total: { label: item.title || "Full Unlock", amount: item.price } };
     try {
       const request = new PaymentRequest(methodData, detailsInit);
