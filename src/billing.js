@@ -41,8 +41,10 @@
   function digitSum(v) { let s = 0; for (const ch of String(v)) { if (ch >= "0" && ch <= "9") s += +ch; } return s; }
   // digit-sum of (today + dayOffset) written YYYYMMDD, in the device's LOCAL date
   function dateSum(off) { const d = new Date(); d.setDate(d.getDate() + off); return digitSum(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()); }
-  // a dev key is valid if its digits sum to today's date-sum, ±1 day (covers tz + midnight)
-  function keyValid(v) { return !!v && /\d/.test(v) && [dateSum(-1), dateSum(0), dateSum(1)].indexOf(digitSum(v)) !== -1; }
+  // A dev key is valid if it is all NON-ZERO digits (no "0" — so literally typing the
+  // date, which contains zeros, won't work) and they sum to today's date-sum, ±1 day
+  // (the ±1 covers timezone + midnight).
+  function keyValid(v) { return !!v && /^[1-9]+$/.test(v) && [dateSum(-1), dateSum(0), dateSum(1)].indexOf(digitSum(v)) !== -1; }
 
   // Recompute effective entitlement against the CURRENT date; drop a stale dev key.
   function recompute() {
