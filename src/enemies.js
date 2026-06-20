@@ -765,16 +765,22 @@
       draw(e, ctx) {
         ctx.rotate(e.ang);
         const crouch = e.mode === "crouch", pounce = e.mode === "pounce";
-        poly(ctx, 4, e.r * (crouch ? 0.85 : 1), 0);
-        neon(ctx, pounce ? "#ffd07a" : e.color, "rgba(255,148,21,.16)", 3.2);
-        // fat orange tiger stripes — horizontal bands spanning the body (tapered to its diamond)
+        const R = e.r * (crouch ? 0.85 : 1);
+        const oc = pounce ? "#ffe0a0" : "#ffab33";   // bright-orange body outline
+        // 1) body fill (backdrop for the stripes)
+        poly(ctx, 4, R, 0); ctx.fillStyle = "rgba(255,138,20,.20)"; ctx.fill();
+        // 2) fat orange tiger stripes — horizontal bands spanning the body
         ctx.strokeStyle = "#c25600"; ctx.lineCap = "round"; ctx.lineWidth = e.r * 0.17;
         for (const fy of [-0.55, -0.2, 0.2, 0.55]) {
-          const y = fy * e.r, halfW = Math.max(0, (e.r - Math.abs(y)) * 0.82);
+          const y = fy * R, halfW = Math.max(0, (R - Math.abs(y)) * 0.82);
           ctx.beginPath(); ctx.moveTo(-halfW, y); ctx.lineTo(halfW, y); ctx.stroke();
         }
         ctx.lineCap = "butt";
-        // eyes
+        // 3) bright-orange body outline ON TOP of the stripes
+        poly(ctx, 4, R, 0);
+        ctx.lineWidth = 4.2; ctx.strokeStyle = oc; ctx.shadowColor = oc; ctx.shadowBlur = 16; ctx.stroke();
+        ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.stroke();
+        // 4) eyes
         for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.r * 0.55, s * e.r * 0.25, e.r * 0.1, 0, M.TAU); ctx.fillStyle = "#fff"; ctx.fill(); }
       },
     },
