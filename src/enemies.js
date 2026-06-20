@@ -767,9 +767,13 @@
         const crouch = e.mode === "crouch", pounce = e.mode === "pounce";
         poly(ctx, 4, e.r * (crouch ? 0.85 : 1), 0);
         neon(ctx, pounce ? "#ffd07a" : e.color, "rgba(255,148,21,.16)", 3.2);
-        // stripes
-        ctx.strokeStyle = "#3a2400"; ctx.lineWidth = 3;
-        for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(e.r * 0.1, i * e.r * 0.35); ctx.lineTo(e.r * 0.6, i * e.r * 0.28); ctx.stroke(); }
+        // fat orange tiger stripes — horizontal bands spanning the body (tapered to its diamond)
+        ctx.strokeStyle = "#c25600"; ctx.lineCap = "round"; ctx.lineWidth = e.r * 0.17;
+        for (const fy of [-0.55, -0.2, 0.2, 0.55]) {
+          const y = fy * e.r, halfW = Math.max(0, (e.r - Math.abs(y)) * 0.82);
+          ctx.beginPath(); ctx.moveTo(-halfW, y); ctx.lineTo(halfW, y); ctx.stroke();
+        }
+        ctx.lineCap = "butt";
         // eyes
         for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.r * 0.55, s * e.r * 0.25, e.r * 0.1, 0, M.TAU); ctx.fillStyle = "#fff"; ctx.fill(); }
       },
