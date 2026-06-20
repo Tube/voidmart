@@ -162,7 +162,7 @@
     /* ---------- PRIZE WHEEL ---------- */
     openWheel(g, prizes, kicker, opts) {
       opts = opts || {};
-      this._wheel = { g, prizes, winner: null, spinning: false, done: false, locked: !!opts.locked };
+      this._wheel = { g, prizes, winner: null, spinning: false, done: false, locked: !!opts.locked, select: !!opts.select };
       this.el.hud.classList.add("hidden");
       this.el.pauseBtn.classList.add("hidden");
       this.el.muteBtn.classList.add("hidden");
@@ -182,11 +182,23 @@
           '<div class="p-desc">' + p.desc + '</div></div>' +
           (opts.locked ? '<div class="p-lock">🔒</div>'
                        : (own ? '<div class="p-own">OWNED ×' + own + '</div>' : ''));
+        if (opts.select) {
+          row.classList.add("selectable");
+          row.addEventListener("click", () => { if (TD.Audio) TD.Audio.ui(); this.chooseWheel(i); });
+        }
         tr.appendChild(row);
       });
       const b = this.el.spinBtn;
       const skip = this.el.wheelSkipBtn;
       b.disabled = false;
+      if (opts.select) {
+        // tap-to-choose: no spin button, no skip
+        b.classList.add("hidden");
+        if (skip) skip.classList.add("hidden");
+        this.show("wheelScreen");
+        return;
+      }
+      b.classList.remove("hidden");
       if (opts.locked) {
         b.className = "big-cta wheel-spin locked";
         b.textContent = "🔓  UNLOCK TO SPIN";
@@ -231,6 +243,16 @@
           TD.Entitlement.price().then((pr) => { if (pr && this._wheel && this._wheel.locked) b.textContent = "🔓  UNLOCK TO SPIN · " + pr; });
         }
       }
+    },
+    // tap-to-choose (select mode): award the tapped item immediately
+    chooseWheel(i) {
+      const w = this._wheel;
+      if (!w || !w.select || w.done) return;
+      w.done = true;
+      const winner = w.prizes[i];
+      this.el.wheelScreen.classList.add("hidden");
+      this._wheel = null;
+      w.g.awardPrize(winner);
     },
     // free players decline the unlock and launch in the default hull
     skipWheel() {

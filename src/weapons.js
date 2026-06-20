@@ -75,13 +75,13 @@
     split: {
       name: "Forklift Spread™", icon: "🍴", rate: 2.7, spread: 0.42,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const n = 3 + s.stats.projAdd;
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const n = (t2 ? 5 : 3) + s.stats.projAdd;        // PRO: wider 5-pellet fan
         const speed = 600 * s.stats.projSpeed * u;
-        fan(game, s, n, s.angle, this.spread + s.stats.spread, speed, (a, px, py, sp, crit) =>
+        fan(game, s, n, s.angle, this.spread + (t2 ? 0.12 : 0) + s.stats.spread, speed, (a, px, py, sp, crit) =>
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
               r: 4.2 * u, dmg: dmgOf(s, 8, crit), life: 1.0, maxLife: 1.0,
-              pierce: s.stats.pierce, hits: new Set(), color: "#b6ff6a", glow: 11,
+              pierce: s.stats.pierce + (t2 ? 1 : 0), hits: new Set(), color: t2 ? "#d6ff8a" : "#b6ff6a", glow: t2 ? 13 : 11,
               crit, homing: s.stats.homing, splash: s.stats.splash }));
       },
     },
@@ -89,13 +89,13 @@
     flak: {
       name: "Bargain Buckshot", icon: "💥", rate: 1.7, spread: 0.95,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const n = 7 + s.stats.projAdd * 2;
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const n = (t2 ? 11 : 7) + s.stats.projAdd * 2;     // PRO: denser cloud, longer reach
         fan(game, s, n, s.angle, this.spread + s.stats.spread, 0, (a, px, py, sp, crit) => {
           const speed = (520 + M.rand(-90, 120)) * s.stats.projSpeed * u;
           return P({ x: px, y: py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-              r: 3.6 * u, dmg: dmgOf(s, 6, crit), life: 0.42, maxLife: 0.42,
-              pierce: s.stats.pierce, hits: new Set(), color: "#ffd14d", glow: 9,
+              r: 3.6 * u, dmg: dmgOf(s, 6, crit), life: t2 ? 0.55 : 0.42, maxLife: t2 ? 0.55 : 0.42,
+              pierce: s.stats.pierce + (t2 ? 1 : 0), hits: new Set(), color: t2 ? "#ffe27a" : "#ffd14d", glow: 9,
               crit, splash: s.stats.splash });
         });
       },
@@ -104,13 +104,13 @@
     pulse: {
       name: "Laser Pointer™", icon: "🔦", rate: 7.5, spread: 0.03,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const n = 1 + s.stats.projAdd;
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const n = (t2 ? 2 : 1) + s.stats.projAdd;          // PRO: twin parallel beams, deeper pierce
         const speed = 980 * s.stats.projSpeed * u;
         fan(game, s, n, s.angle, n > 1 ? 0.16 : 0, speed, (a, px, py, sp, crit) =>
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, angle: a,
               r: 3 * u, dmg: dmgOf(s, 6, crit), life: 1.0, maxLife: 1.0,
-              pierce: 1 + s.stats.pierce, hits: new Set(), color: "#ff5edb", glow: 14,
+              pierce: (t2 ? 2 : 1) + s.stats.pierce, hits: new Set(), color: t2 ? "#ff8af0" : "#ff5edb", glow: t2 ? 16 : 14,
               kind: "beam", crit, splash: s.stats.splash }));
       },
     },
@@ -120,6 +120,7 @@
       fire(game, s) {
         const u = TD.Screen.unit;
         const n = 1 + s.stats.projAdd;                 // respect Buy-One-Get-One etc.
+        const t2 = s.weaponTier > 0;                       // PRO: heavier slug, deeper pierce
         const speed = 1350 * s.stats.projSpeed * u;
         const spread = n > 1 ? 0.12 + s.stats.spread : 0;
         const muzzle = (s.r + 6) * u;
@@ -129,8 +130,8 @@
           const a = s.angle + (t - 0.5) * spread;
           const crit = M.chance(s.stats.critChance);
           game.projectiles.push(P({ x: px, y: py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, angle: a,
-            r: 7 * u, dmg: dmgOf(s, 58, crit), life: 1.4, maxLife: 1.4,
-            pierce: 4 + s.stats.pierce, hits: new Set(), color: "#9d6bff", glow: 22,
+            r: (t2 ? 8.5 : 7) * u, dmg: dmgOf(s, t2 ? 82 : 58, crit), life: 1.4, maxLife: 1.4,
+            pierce: (t2 ? 7 : 4) + s.stats.pierce, hits: new Set(), color: t2 ? "#b18cff" : "#9d6bff", glow: t2 ? 26 : 22,
             kind: "slug", crit, splash: s.stats.splash }));
         }
         game.flashMuzzle(px, py, s.angle, "#9d6bff", 1.8 + n * 0.2);
@@ -143,18 +144,18 @@
     missiles: {
       name: "Homing Air-Pods", icon: "🎧", rate: 2.0, spread: 0.5,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const n = 1 + Math.floor(s.stats.projAdd);
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const n = 1 + Math.floor(s.stats.projAdd) + (t2 ? 1 : 0);   // PRO: +1 missile, tighter tracking, bigger blast
         for (let i = 0; i < n; i++) {
           const a = s.angle + (n > 1 ? (i / (n - 1) - 0.5) * 0.8 : 0) + M.rand(-0.1, 0.1);
           const muzzle = (s.r + 4) * u;
           const px = s.x + Math.cos(a) * muzzle, py = s.y + Math.sin(a) * muzzle;
           const crit = M.chance(s.stats.critChance);
           game.projectiles.push(P({ x: px, y: py, vx: Math.cos(a) * 220 * u, vy: Math.sin(a) * 220 * u, angle: a,
-            r: 5 * u, dmg: dmgOf(s, 16, crit), life: 2.6, maxLife: 2.6,
-            pierce: s.stats.pierce, hits: new Set(), color: "#ff8a3b", glow: 14,
-            kind: "missile", homing: 1, turnRate: 5.5, accel: 720 * u, maxSpeed: 560 * u,
-            crit, splash: Math.max(s.stats.splash, 26 * u) }));
+            r: 5 * u, dmg: dmgOf(s, t2 ? 20 : 16, crit), life: 2.6, maxLife: 2.6,
+            pierce: s.stats.pierce, hits: new Set(), color: t2 ? "#ffa85e" : "#ff8a3b", glow: t2 ? 16 : 14,
+            kind: "missile", homing: 1, turnRate: t2 ? 7.5 : 5.5, accel: 720 * u, maxSpeed: 560 * u,
+            crit, splash: Math.max(s.stats.splash, (t2 ? 40 : 26) * u) }));
         }
       },
     },
@@ -162,16 +163,16 @@
     blades: {
       name: "Boomerang Spatula", icon: "🪃", rate: 1.5, spread: 0.6,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const n = 2 + s.stats.projAdd;
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const n = (t2 ? 3 : 2) + s.stats.projAdd;          // PRO: +1 bigger, faster-spinning blade
         for (let i = 0; i < n; i++) {
           const a = s.angle + (n > 1 ? (i / (n - 1) - 0.5) * this.spread : 0);
           const speed = 560 * s.stats.projSpeed * u;
           const crit = M.chance(s.stats.critChance);
           game.projectiles.push(P({ x: s.x, y: s.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-            r: 7 * u, dmg: dmgOf(s, 11, crit), life: 1.5, maxLife: 1.5,
-            pierce: 99, hits: new Set(), color: "#52ffce", glow: 14, kind: "blade",
-            spin: M.rand(10, 16), ret: true, owner: s, crit, splash: s.stats.splash }));
+            r: (t2 ? 8.5 : 7) * u, dmg: dmgOf(s, t2 ? 13 : 11, crit), life: 1.5, maxLife: 1.5,
+            pierce: 99, hits: new Set(), color: t2 ? "#7affd9" : "#52ffce", glow: t2 ? 16 : 14, kind: "blade",
+            spin: M.rand(t2 ? 13 : 10, t2 ? 19 : 16), ret: true, owner: s, crit, splash: s.stats.splash }));
         }
       },
     },
@@ -179,10 +180,10 @@
     arc: {
       name: "Static-Sock Zapper", icon: "🧦", rate: 2.4, spread: 0,
       fire(game, s) {
-        const u = TD.Screen.unit;
-        const range = 230 * u, chainRange = 170 * u;
-        const bolts = 1 + Math.floor(s.stats.projAdd);   // multishot = more separate bolts
-        const chainLen = 3 + s.stats.pierce;             // pierce = longer chains
+        const u = TD.Screen.unit, t2 = s.weaponTier > 0;
+        const range = (t2 ? 280 : 230) * u, chainRange = (t2 ? 210 : 170) * u;
+        const bolts = 1 + Math.floor(s.stats.projAdd) + (t2 ? 1 : 0);   // PRO: +1 bolt, longer chains & reach
+        const chainLen = 3 + s.stats.pierce + (t2 ? 2 : 0);
         const firstUsed = new Set();                     // spread bolts to different targets
         let any = false;
         for (let b = 0; b < bolts; b++) {

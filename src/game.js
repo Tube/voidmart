@@ -68,6 +68,9 @@
       // prize-wheel meta-powers
       this.ship.prizes = {};
       this.ship.chassis = TD.BODIES.DEFAULT;   // default hull until the welcome wheel resolves (paid) or stays (free)
+      this.ship.weaponTier = 0;                // 0 = base weapon, 1 = PRO (tier-2) firing mode
+      this.weaponDropDone = false;             // boss-reward milestone flags (one each per run)
+      this.shipUpgradeDone = false;
       this.ship.damageMul = 1; this.ship.fireMul = 1;
       this.ship.combo = 0; this.ship.shotCount = 0; this.ship.shockT = 4;
       this.ship.trailT = 0;
@@ -95,21 +98,95 @@
         });
         return;
       }
-      // First-boss reward: a player still flying the default Store Brand hull (i.e. a
-      // free player who skipped the welcome wheel) earns a real ship selection here,
-      // just like the starting wheel. Their power rewards then begin on the next boss.
-      if (reason === "boss" && this.ship.chassis === TD.BODIES.DEFAULT) {
-        this._wheelReason = "bossship";
-        TD.UI.openWheel(this, TD.BODIES.roll(3), "🏆 BOSS REWARD · PICK YOUR RIDE", {
-          title: "🎡 Spin for your <b>Ship</b>!",
-          sub: "You earned it — claim a premium hull. It flies differently.",
-        });
-        return;
+      // Boss-reward MILESTONE LADDER (state-driven, so paid players are naturally one
+      // boss ahead — they spent "boss 0" = start on their ship). Each rung is granted
+      // once, in order; once all are done, normal power rewards begin.
+      //   1) Ship selection — only if still on the default hull (a free skipper).
+      //   2) Weapon drop    — pick a weapon (or upgrade the one you have).
+      //   3) Ship upgrade   — tier-2 of your current hull.
+      if (reason === "boss") {
+        if (this.ship.chassis === TD.BODIES.DEFAULT) {
+          this._wheelReason = "bossship";
+          TD.UI.openWheel(this, TD.BODIES.roll(3), "🏆 BOSS REWARD · PICK YOUR RIDE", {
+            title: "🎡 Spin for your <b>Ship</b>!",
+            sub: "You earned it — claim a premium hull. It flies differently.",
+          });
+          return;
+        }
+        if (!this.weaponDropDone) {
+          this._wheelReason = "bossweapon";
+          const onBlaster = this.ship.stats.weapon === "blaster";
+          TD.UI.openWheel(this, this.weaponWheelItems(), "🏆 BOSS REWARD · ARM UP", {
+            title: onBlaster ? "🔫 Pick your <b>Weapon</b>" : "🔫 Weapon <b>Upgrade</b>",
+            sub: onBlaster ? "Choose a loadout — tap one. Yours to keep."
+                           : "Swap to a new weapon, or supercharge what you've got. Tap one.",
+            select: true,
+          });
+          return;
+        }
+        if (!this.shipUpgradeDone) {
+          this._wheelReason = "bossupgrade";
+          TD.UI.openWheel(this, this.shipUpgradeItems(), "🏆 BOSS REWARD · SHIP TUNE-UP", {
+            title: "⬆️ <b>Upgrade</b> your ship",
+            sub: "Your hull's perks — intensified. Tap to install.",
+            select: true,
+          });
+          return;
+        }
       }
       TD.UI.openWheel(this, TD.PRIZES.roll(3), "🏆 BOSS REWARD · MEMBERS-ONLY", {
         title: "🎡 Spin the <b>Prize Wheel</b>!",
         sub: "One <b>FREE</b> power, guaranteed. These <b>stack forever</b>.",
       });
+    },
+    // wheel items for the weapon drop: blaster players pick 1 of 3 weapons; players who
+    // already hold a weapon get 2 random others + a PRO upgrade of their current weapon.
+    // (arc is excluded — it stays a paid/shop legendary, never given free here.)
+    weaponWheelItems() {
+      const pool = ["split", "flak", "pulse", "rail", "missiles", "blades"];
+      const cur = this.ship.stats.weapon;
+      const desc = (wid) => (TD.Upgrades.BY_ID[wid] && TD.Upgrades.BY_ID[wid].desc) || TD.WEAPONS[wid].name;
+      const mk = (wid) => ({ id: "wpn_" + wid, name: TD.WEAPONS[wid].name, icon: TD.WEAPONS[wid].icon,
+        desc: desc(wid), seg: "#7ef9ff", isWeapon: true, weaponId: wid });
+      if (cur === "blaster" || pool.indexOf(cur) === -1 && cur !== "arc") {
+        return M.shuffle(pool).slice(0, 3).map(mk);
+      }
+      const others = M.shuffle(pool.filter((w) => w !== cur)).slice(0, 2).map(mk);
+      const up = { id: "wpnup", name: TD.WEAPONS[cur].name + " PRO", icon: TD.WEAPONS[cur].icon,
+        desc: "Upgrade your " + TD.WEAPONS[cur].name + " to its tier-2 firing mode.", seg: "#ffd23b", isWeaponUp: true };
+      return M.shuffle(others.concat([up]));
+    },
+    shipUpgradeItems() {
+      const c = this.ship.chassis;
+      return [{ id: "shipup", name: c.name + " PRO", icon: c.icon || "🚀",
+        desc: "Tune-up: your hull's bonuses, intensified — plus a little extra armor.",
+        seg: c.color || "#ffd23b", isShipUp: true }];
+    },
+    equipWeapon(wid) {
+      this.ship.stats.weapon = wid;
+      this.ship.weaponTier = 0;
+      this.weaponDropDone = true;
+      this.toast("🔫 " + TD.WEAPONS[wid].name + " equipped!", "good");
+      this.ring(this.ship.x, this.ship.y, this.ship.r * 4, "#7ef9ff");
+      this.state = "play"; TD.Input.enabled = true; TD.UI.enterPlay();
+    },
+    upgradeWeapon() {
+      this.ship.weaponTier = 1;
+      this.weaponDropDone = true;
+      this.toast("⬆️ " + TD.WEAPONS[this.ship.stats.weapon].name + " PRO!", "good");
+      this.ring(this.ship.x, this.ship.y, this.ship.r * 4, "#ffd23b");
+      this.state = "play"; TD.Input.enabled = true; TD.UI.enterPlay();
+    },
+    upgradeShip() {
+      const c = this.ship.chassis, st = this.ship.stats;
+      if (c && c.apply) c.apply(st);     // re-apply the hull's identity bonus (intensify)
+      st.maxHull += 20;
+      this.ship.hull = this.ship.baseHull + st.maxHull;     // top up to the new max
+      this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, st.maxShield));
+      this.shipUpgradeDone = true;
+      this.toast("⬆️ " + c.name + " upgraded!", "good");
+      this.ring(this.ship.x, this.ship.y, this.ship.r * 5, c.color || "#ffd23b");
+      this.state = "play"; TD.Input.enabled = true; TD.UI.enterPlay();
     },
     applyBody(body) {
       const s = this.ship;
@@ -127,6 +204,12 @@
     awardPrize(prize) {
       if (prize.isBody) {
         this.applyBody(prize);   // sets state=play + resumes (used by start wheel AND first-boss ship reward)
+      } else if (prize.isWeapon) {
+        this.equipWeapon(prize.weaponId);
+      } else if (prize.isWeaponUp) {
+        this.upgradeWeapon();
+      } else if (prize.isShipUp) {
+        this.upgradeShip();
       } else {
         const n = (this.ship.prizes[prize.id] = (this.ship.prizes[prize.id] || 0) + 1);
         if (prize.id === "blackstar") this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, this.ship.stats.maxShield + n * 25));
@@ -267,7 +350,9 @@
       def.spawn(e);
       const scale = opts.hpScale || this.difficulty();
       e.hpScale = scale;
-      e.maxHp = def.fixedHp != null ? def.fixedHp : def.baseHp * scale * e.hpMul;
+      // minibosses were ~30% too tanky — trim their HP (bosses & commons unchanged)
+      const miniHp = def.isMini ? 0.7 : 1;
+      e.maxHp = def.fixedHp != null ? def.fixedHp : def.baseHp * scale * e.hpMul * miniHp;
       e.hp = e.maxHp;
       e.contact = def.contact * (1 + (scale - 1) * 0.35) * 0.8;
       this.enemies.push(e);

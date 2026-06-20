@@ -31,7 +31,7 @@
     return U({
       id, name, icon, desc, rarity, dept: "Weapons", max: 1,
       prereq: (s) => s.stats.weapon !== id,
-      apply: (s) => { s.stats.weapon = id; },
+      apply: (s) => { s.stats.weapon = id; s.weaponTier = 0; },   // a fresh weapon starts at tier 1 (base)
     });
   }
 
