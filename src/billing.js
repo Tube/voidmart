@@ -168,6 +168,13 @@
     }
   } catch (e) {}
 
+  // True when the INSTALLED app launched but the billing/TWA layer is absent — i.e. this
+  // launch dropped into browser-tab fallback. False in a normal full-screen TWA and false
+  // for genuine web players (no android-app referrer), so it never nags browser users.
+  function inAppFallback() {
+    return launchedFromApp() && !window.getDigitalGoodsService;
+  }
+
   TD.Entitlement = {
     SKU,
     isUnlocked() { return unlocked; },
@@ -176,6 +183,7 @@
     revalidate,
     purchase,
     price,
+    inAppFallback,
   };
 
   // Best-effort Play restore on load (no-op outside the Play app).

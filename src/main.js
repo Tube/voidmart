@@ -32,6 +32,12 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden && TD.Game.state === "play") TD.Game.togglePause();
     });
+
+    // If the installed app launched into browser-tab fallback, nudge the player to relaunch
+    // up front (so they fix it before a run / before hitting the unlock). Web players never see this.
+    if (TD.Entitlement && TD.Entitlement.inAppFallback && TD.Entitlement.inAppFallback()) {
+      setTimeout(() => TD.UI.toast("⚠️ Opened in browser mode. Close VOIDMART fully (swipe it away) and reopen for the full-screen app.", "bad", 7000), 600);
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
