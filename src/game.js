@@ -95,6 +95,17 @@
         });
         return;
       }
+      // First-boss reward: a player still flying the default Store Brand hull (i.e. a
+      // free player who skipped the welcome wheel) earns a real ship selection here,
+      // just like the starting wheel. Their power rewards then begin on the next boss.
+      if (reason === "boss" && this.ship.chassis === TD.BODIES.DEFAULT) {
+        this._wheelReason = "bossship";
+        TD.UI.openWheel(this, TD.BODIES.roll(3), "🏆 BOSS REWARD · PICK YOUR RIDE", {
+          title: "🎡 Spin for your <b>Ship</b>!",
+          sub: "You earned it — claim a premium hull. It flies differently.",
+        });
+        return;
+      }
       TD.UI.openWheel(this, TD.PRIZES.roll(3), "🏆 BOSS REWARD · MEMBERS-ONLY", {
         title: "🎡 Spin the <b>Prize Wheel</b>!",
         sub: "One <b>FREE</b> power, guaranteed. These <b>stack forever</b>.",
@@ -114,15 +125,19 @@
       TD.UI.enterPlay();
     },
     awardPrize(prize) {
-      if (prize.isBody) { this.applyBody(prize); return; }
-      const n = (this.ship.prizes[prize.id] = (this.ship.prizes[prize.id] || 0) + 1);
-      if (prize.id === "blackstar") this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, this.ship.stats.maxShield + n * 25));
-      this.toast("🎡 " + prize.name + " ×" + n, "good");
-      this.ring(this.ship.x, this.ship.y, this.ship.r * 4, "#ffd23b");
-      // resume
-      this.state = "play";
-      TD.Input.enabled = true;
-      TD.UI.enterPlay();
+      if (prize.isBody) {
+        this.applyBody(prize);   // sets state=play + resumes (used by start wheel AND first-boss ship reward)
+      } else {
+        const n = (this.ship.prizes[prize.id] = (this.ship.prizes[prize.id] || 0) + 1);
+        if (prize.id === "blackstar") this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, this.ship.stats.maxShield + n * 25));
+        this.toast("🎡 " + prize.name + " ×" + n, "good");
+        this.ring(this.ship.x, this.ship.y, this.ship.r * 4, "#ffd23b");
+        this.state = "play";
+        TD.Input.enabled = true;
+        TD.UI.enterPlay();
+      }
+      // post-boss continuation (any reason except the welcome/start wheel) — runs for
+      // both power rewards and the first-boss ship reward so a queued boss still spawns.
       if (this._wheelReason !== "start" && this.pendingBoss && !this.bossActive) {
         this.pendingBoss = false; this.spawnBoss();
       }
