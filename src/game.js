@@ -436,6 +436,8 @@
       if (e.dead) return;
       e.dead = true; this.kills++;
       this.score += Math.round(e.def.score * (1 + this.level * 0.04));
+      // bosses get a dedicated cinematic explosion + deferred goodies (no generic coin spray)
+      if (e.def.isBoss) { this.onBossDead(e); return; }
       this.explode(e.x, e.y, e.def.color, e.r);
       if (!e.def.isBoss) TD.Audio.explosion(e.r);
       this.addPop(e.x, e.y, e.r * 3.4, e.def.color, { fill: "#ffffff", w: 4 });
@@ -473,19 +475,59 @@
     },
     onBossDead(e) {
       this.bossActive = false; this.bossRef = null; this.bossesBeaten++;
-      TD.Audio.bossDie();
-      this.screenFlash("#fff7d6", 0.72);
-      this.hitstop(0.12);
-      this.shake(18);
-      this.addPop(e.x, e.y, e.r * 4, "#fff3c4", { fill: "#ffffff", w: 6, life: 0.5 });
-      this.addPop(e.x, e.y, e.r * 6, "#ffd23b", { w: 4, life: 0.55 });
-      this.addFloater(e.x, e.y - e.r, "5★ KILL!", "#ffe27a", { size: 30, vy: -30, life: 1.0 });
+      this.ship.combo++;
       this.score += 2500;
-      this.restoreField();
-      this.dropCoins(e.x, e.y, 160, 240);
-      this.dropPickup(e.x, e.y);
-      this.toast("⭐ 5-star kill! +2500 savings", "good");
-      this.openPrizeWheel("boss");
+      TD.Audio.bossDie();
+      // FREEZE the whole field (state leaves "play" so update() pauses) and play a big,
+      // coinless cinematic explosion; the goodies + reward wheel come AFTER it finishes.
+      this.state = "bossfx";
+      TD.Input.enabled = false; TD.Input.reset();
+      if (TD.Audio) TD.Audio.setThrust(0);
+      this.bossExplosion(e.x, e.y, e.r, e.def.color);
+      this.screenFlash("#fff7d6", 0.9);
+      this.shake(28);
+      this._bossReward = { x: e.x, y: e.y };
+      clearTimeout(this._bossFxT);
+      this._bossFxT = setTimeout(() => this.finishBossDeath(), 1700);
+    },
+    finishBossDeath() {
+      const p = this._bossReward || { x: this.ship.x, y: this.ship.y };
+      this.addFloater(p.x, p.y, "5★ KILL!", "#ffe27a", { size: 30, vy: -30, life: 1.0 });
+      this.repairField(0.75);          // boss reward: repair 75% of the field
+      this.dropCoins(p.x, p.y, 160, 240);
+      this.dropPickup(p.x, p.y);
+      this.toast("⭐ 5-star kill! +2500 savings · 🛡️ field +75%", "good");
+      this.openPrizeWheel("boss");     // sets state -> "wheel"
+    },
+    // a big, coinless neon blast for boss deaths (reuses the deathFx system).
+    bossExplosion(x, y, R, color) {
+      const u = S.unit;
+      this.deathFx = this.deathFx || [];
+      const neon = ["#37f0ff", "#ff2d6a", "#ffd23b", "#7af06a", "#c79bff", "#ff8a2b"];
+      for (let i = 0; i < 9; i++) {
+        const a = M.rand(0, M.TAU), rr = M.rand(0, R * 0.7);
+        const ox = x + Math.cos(a) * rr, oy = y + Math.sin(a) * rr;
+        const col = (color && i % 3 === 0) ? color : neon[i % neon.length];
+        for (let j = 0; j < 2; j++) {
+          this.deathFx.push({ kind: "dring", x: ox, y: oy, r: R * (0.18 + j * 0.2),
+            vr: M.rand(180, 360) * u, rot: M.rand(0, M.TAU), rotSpeed: M.rand(-7, 7),
+            life: M.rand(0.9, 1.4) - j * 0.1, maxLife: 1.5, color: col,
+            lw: (4 - j * 1.2) * u, arcs: M.randInt(2, 4), gap: M.rand(0.5, 1.0) });
+        }
+      }
+      this.deathFx.push({ kind: "dring", x, y, r: R * 0.6, vr: 680 * u, rot: 0, rotSpeed: 2.2,
+        life: 0.7, maxLife: 0.7, color: "#ffffff", lw: 5 * u, arcs: 1, gap: 0 });
+      for (let i = 0; i < 110; i++) {
+        const a = M.rand(0, M.TAU), sp = M.rand(140, 720) * u;
+        this.deathFx.push({ kind: "dspark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: M.rand(0.5, 1.3), maxLife: 1.3, r: M.rand(1.6, 4) * u, color: neon[(Math.random() * neon.length) | 0] });
+      }
+      for (let i = 0; i < 14; i++) {
+        const a = M.rand(0, M.TAU), sp = M.rand(90, 340) * u;
+        this.deathFx.push({ kind: "dshard", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: M.rand(0.9, 1.5), maxLife: 1.5, r: M.rand(5, 10) * u,
+          rot: M.rand(0, M.TAU), rotV: M.rand(-10, 10), color: color || neon[(Math.random() * neon.length) | 0] });
+      }
     },
     dropPickup(x, y) {
       this.pickups.push({ x, y, r: 11 * S.unit, life: 12, t: 0, kind: "heal" });
@@ -520,6 +562,12 @@
     restoreField() {
       const s = this.ship;
       s.shield = Math.min(this.fieldCap(), Math.max(s.shield, s.stats.maxShield));
+    },
+    // repair `frac` of max field (never reduces; won't push past max via repair alone)
+    repairField(frac) {
+      const s = this.ship;
+      const healed = Math.min(s.stats.maxShield, s.shield + s.stats.maxShield * frac);
+      s.shield = Math.min(this.fieldCap(), Math.max(s.shield, healed));
     },
 
     damageShip(dmg, srcAng, hullResist) {
@@ -683,6 +731,7 @@
     openShop() {
       this.state = "shop";
       TD.Input.enabled = false; TD.Input.reset();
+      this.repairField(0.25);          // popping the store repairs 25% of the field
       TD.Audio.setThrust(0);
       TD.Audio.levelUp();
       this.rerolls = 2;
@@ -860,6 +909,12 @@
       }
       // hull regen
       if (st.hullRegen > 0) this.healHull(st.hullRegen * dt);
+      // low-hull klaxon — loops while hull is under 10%
+      const maxH = s.baseHull + st.maxHull;
+      if (s.hull > 0 && s.hull / maxH < 0.10) {
+        this._klaxonT = (this._klaxonT || 0) - dt;
+        if (this._klaxonT <= 0) { this._klaxonT = 0.85; TD.Audio.klaxon(); }
+      } else { this._klaxonT = 0; }
       // thorns aura
       if (st.thorns > 0) {
         const R = s.r * 3.4;

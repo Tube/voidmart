@@ -210,6 +210,12 @@
         this.tone({ freq: f, type: "triangle", dur: 0.2, gain: 0.12, at: i * 0.08, space: 0.3 }));
     },
     ui() { this.tone({ freq: 880, type: "square", dur: 0.05, gain: 0.08 }); },
+    // low-hull alarm — a short descending two-tone whoop (game calls it on a cadence)
+    klaxon() {
+      if (!this.ok("klaxon", 250)) return;
+      this.tone({ freq: 760, to: 470, type: "sawtooth", dur: 0.26, gain: 0.12, space: 0.12 });
+      this.tone({ freq: 380, to: 235, type: "square", dur: 0.26, gain: 0.06 });
+    },
   };
 
   TD.Audio = Audio;
