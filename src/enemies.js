@@ -1049,8 +1049,15 @@
         ctx.rotate(e.ang);
         ctx.beginPath(); ctx.moveTo(e.r, 0); ctx.lineTo(-e.r * 0.8, e.r * 0.7); ctx.lineTo(-e.r * 0.6, 0); ctx.lineTo(-e.r * 0.8, -e.r * 0.7); ctx.closePath();
         neon(ctx, e.color, "rgba(156,192,255,.16)", 3);
-        // floppy ears
-        for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(e.r * 0.2, s * e.r * 0.6, e.r * 0.3, e.r * 0.16, 0, 0, M.TAU); neon(ctx, e.color, "rgba(156,192,255,.22)", 2); }
+        // floppy triangular hound ears — droop down-and-out (distinct from the pig's upright ears)
+        for (const s of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(e.r * 0.32, s * e.r * 0.28);
+          ctx.lineTo(-e.r * 0.05, s * e.r * 0.34);
+          ctx.lineTo(e.r * 0.12, s * e.r * 0.95);
+          ctx.closePath();
+          neon(ctx, e.color, "rgba(156,192,255,.22)", 2);
+        }
         ctx.beginPath(); ctx.arc(e.r * 0.85, 0, e.r * 0.12, 0, M.TAU); ctx.fillStyle = "#1a2438"; ctx.fill();
       },
     },
