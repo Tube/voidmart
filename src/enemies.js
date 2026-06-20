@@ -845,11 +845,21 @@
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
-        // body coils behind head
-        ctx.strokeStyle = e.color; ctx.lineWidth = 6; ctx.shadowColor = e.color; ctx.shadowBlur = 10;
-        ctx.beginPath(); ctx.moveTo(-e.r * 0.6, 0);
-        for (let i = 1; i <= 6; i++) ctx.lineTo(-e.r * (0.6 + i * 0.45), Math.sin(e.t * 3 + i) * e.r * 0.4);
-        ctx.stroke(); ctx.shadowBlur = 0;
+        // long, thin, segmented tail — more & smaller beads than the serpent (longer + thinner),
+        // curving and swaying behind the head.
+        ctx.shadowColor = e.color;
+        let px = -e.r * 0.45, py = 0, a = Math.PI;
+        const N = 24, step = e.r * 0.46;
+        for (let i = 0; i < N; i++) {
+          a += Math.sin(e.t * 3 + i * 0.6) * 0.2;
+          px += Math.cos(a) * step; py += Math.sin(a) * step;
+          const rr = Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3)));
+          ctx.beginPath(); ctx.arc(px, py, rr, 0, M.TAU);
+          ctx.fillStyle = "rgba(255,59,92,.28)";
+          ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.shadowBlur = 8;
+          ctx.fill(); ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
         poly(ctx, 7, e.r, 0); neon(ctx, e.color, "rgba(255,59,92,.16)", 3.4);
         // horns + whiskers
         for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(-e.r * 0.2, s * e.r * 0.5); ctx.lineTo(-e.r * 0.7, s * e.r); ctx.strokeStyle = "#ffd07a"; ctx.lineWidth = 3; ctx.stroke();
