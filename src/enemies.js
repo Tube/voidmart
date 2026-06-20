@@ -1049,12 +1049,12 @@
         ctx.rotate(e.ang);
         ctx.beginPath(); ctx.moveTo(e.r, 0); ctx.lineTo(-e.r * 0.8, e.r * 0.7); ctx.lineTo(-e.r * 0.6, 0); ctx.lineTo(-e.r * 0.8, -e.r * 0.7); ctx.closePath();
         neon(ctx, e.color, "rgba(156,192,255,.16)", 3);
-        // floppy triangular hound ears — droop down-and-out (distinct from the pig's upright ears)
+        // triangular hound ears — swept forward (tips angle toward the nose), distinct from pig's upright ears
         for (const s of [-1, 1]) {
           ctx.beginPath();
-          ctx.moveTo(e.r * 0.32, s * e.r * 0.28);
-          ctx.lineTo(-e.r * 0.05, s * e.r * 0.34);
-          ctx.lineTo(e.r * 0.12, s * e.r * 0.95);
+          ctx.moveTo(e.r * 0.2, s * e.r * 0.3);    // front base (near head)
+          ctx.lineTo(-e.r * 0.12, s * e.r * 0.42);  // rear base
+          ctx.lineTo(e.r * 0.62, s * e.r * 0.8);    // tip swept forward & out
           ctx.closePath();
           neon(ctx, e.color, "rgba(156,192,255,.22)", 2);
         }
