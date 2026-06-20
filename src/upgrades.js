@@ -105,12 +105,31 @@
     U({ id: "jackpot", name: "Everything-Free Friday", icon: "🎉", dept: "Add-ons", rarity: "legendary", max: 2,
         desc: "+1 projectile, +12% damage AND +12% fire rate. Doorbuster!",
         apply: (s) => { s.stats.projAdd += 1; s.stats.damage *= 1.12; s.stats.fireRate *= 1.12; } }),
+
+    /* ---------------- DOORBUSTERS (legendary — paid players only) ---------------- */
+    U({ id: "multipack", name: "Bulk-Buy Multipack", icon: "📦", dept: "Add-ons", rarity: "legendary", max: 1,
+        desc: "+2 projectiles, every shot. Why buy one bullet? Doorbuster!",
+        apply: (s) => { s.stats.projAdd += 2; } }),
+    U({ id: "finalmarkdown", name: "Final Markdown", icon: "💯", dept: "Add-ons", rarity: "legendary", max: 1,
+        desc: "+20% crit chance and +1× crit damage. Everything must crit. Doorbuster!",
+        apply: (s) => { s.stats.critChance += 0.20; s.stats.critMult += 1.0; } }),
+    U({ id: "warranty", name: "Extended Protection Plan™", icon: "🛡️", dept: "Force Fields", rarity: "legendary", max: 1,
+        desc: "+60 field, +10/s recharge, near-instant reboot. Fully covered. Doorbuster!",
+        apply: (s) => { s.stats.maxShield += 60; s.shield += 60; s.stats.shieldRegen += 10; s.stats.shieldDelay = Math.max(0.3, s.stats.shieldDelay - 0.8); } }),
+    U({ id: "rewardscard", name: "Blood Rewards Card", icon: "🩸", dept: "Hull & Body", rarity: "legendary", max: 1,
+        desc: "Heal 12% of all damage dealt + steady hull regen. Membership has its perks. Doorbuster!",
+        apply: (s) => { s.stats.lifesteal += 0.12; s.stats.hullRegen += 4; } }),
+    U({ id: "swarm", name: "Refurb Drone Swarm", icon: "🤖", dept: "Add-ons", rarity: "legendary", max: 1,
+        desc: "THREE refurbished drones orbit and fire — all at once. Doorbuster!",
+        apply: (s) => { s.addDrone(); s.addDrone(); s.addDrone(); } }),
   ];
 
   const BY_ID = {};
   LIST.forEach((u) => (BY_ID[u.id] = u));
 
-  const RARITY_W = { common: 100, rare: 42, epic: 15, legendary: 4 };
+  // legendary kept "rare as hell" — low base weight; total legendary odds stay low even
+  // though there are now several of them (and at most one can appear per offer, see roll()).
+  const RARITY_W = { common: 100, rare: 42, epic: 15, legendary: 3 };
 
   const Upgrades = {
     LIST, BY_ID, SOLD, STARS, PRICE,
@@ -150,8 +169,13 @@
         let tot = 0; for (const c of cands) tot += c.w;
         let r = Math.random() * tot, idx = 0;
         for (let i = 0; i < cands.length; i++) { if ((r -= cands[i].w) <= 0) { idx = i; break; } }
-        out.push(cands[idx].u);
+        const chosen = cands[idx].u;
+        out.push(chosen);
         cands.splice(idx, 1);
+        // never offer two Doorbusters at once — drop the rest of the legendaries
+        if (chosen.rarity === "legendary") {
+          for (let i = cands.length - 1; i >= 0; i--) if (cands[i].u.rarity === "legendary") cands.splice(i, 1);
+        }
       }
       return out;
     },
