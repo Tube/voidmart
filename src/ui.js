@@ -136,12 +136,16 @@
     },
 
     /* ---------- toasts & banner ---------- */
-    toast(msg, kind) {
+    toast(msg, kind, ms) {
+      ms = ms || 1150;
       const t = document.createElement("div");
       t.className = "toast" + (kind ? " " + kind : "");
+      if (ms > 1150) t.classList.add("wrap");   // multi-line guidance toasts
       t.textContent = msg;
+      // scale the in/hold/out animation to the requested lifetime
+      t.style.animationDuration = (ms / 1000) + "s";
       this.el.toasts.appendChild(t);
-      setTimeout(() => t.remove(), 1150);
+      setTimeout(() => t.remove(), ms);
       // cap
       while (this.el.toasts.children.length > 4) this.el.toasts.firstChild.remove();
     },

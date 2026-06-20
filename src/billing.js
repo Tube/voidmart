@@ -117,18 +117,31 @@
     return recompute();
   }
 
+  // Were we launched from the installed Android app? A verified TWA sets the
+  // referrer to android-app://<our package>. If that's true but the billing
+  // service is missing, the app dropped into browser-fallback mode this launch.
+  function launchedFromApp() {
+    try { return /^android-app:\/\//.test(document.referrer || ""); } catch (e) { return false; }
+  }
+  function toast(msg, ms) { if (TD.Game && TD.Game.toast) TD.Game.toast(msg, "bad", ms); }
+
   // Launch the Play purchase flow. Resolves true if the unlock is owned.
   async function purchase() {
     if (unlocked) return true;
     const svc = await getService();
     if (!svc || !window.PaymentRequest) {
-      if (TD.Game && TD.Game.toast) TD.Game.toast("⚠️ Unlock is only available in the Play Store app.", "bad");
+      if (launchedFromApp()) {
+        // billing API absent inside the app → browser-fallback this launch; relaunching fixes it
+        toast("⚠️ The store didn't load. Fully close VOIDMART (swipe it away) and reopen it from your home screen, then tap Unlock again.", 6000);
+      } else {
+        toast("⚠️ In-app purchases work in the VOIDMART app from Google Play.", 4000);
+      }
       return false;
     }
     const item = await fetchItem(svc);
     if (!item) {
       // service exists but the product didn't load — usually not Active yet / still propagating
-      if (TD.Game && TD.Game.toast) TD.Game.toast("⚠️ Couldn't load the offer — try again in a moment.", "bad");
+      toast("⚠️ Couldn't load the offer — try again in a moment.", 4000);
       return false;
     }
     const methodData = [{ supportedMethods: STORE, data: { sku: item.itemId || SKU } }];
