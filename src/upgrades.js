@@ -156,6 +156,8 @@
         const have = ship.mods[u.id] || 0;
         if (have >= u.max) continue;
         if (u.rarity === "legendary" && !paid) continue;
+        // per-hull store exclusions (e.g. Hover Cart hides +turn — its turn is already maxed)
+        if (ship.chassis && ship.chassis.exclude && ship.chassis.exclude.indexOf(u.id) !== -1) continue;
         if (u.prereq && !u.prereq(ship)) continue;
         let w = (RARITY_W[u.rarity] || 10) * u.weight;
         // scale rare+ odds up as you progress

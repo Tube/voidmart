@@ -144,9 +144,12 @@
     },
     {
       id: "saucer", name: "Hover Cart", icon: "🛸", seg: "#2fe6c8", color: "#2fe6c8",
-      desc: "Round hover-disc: near-instant turning and quick braking for pinpoint control. No combat bonuses.",
+      desc: "Round hover-disc: near-instant turning and quick braking for pinpoint control. Mk2 adds blazing acceleration and a higher top speed.",
+      // turn rate is already maxed by the hull — a +turn shop item would be wasted, so hide it
+      exclude: ["turn"],
       apply(st) { st.turn *= 8; st.brakeDrag = 4; },
-      upgrade(st) { st.turn *= 2; st.brakeDrag += 2; },   // Mk2: upside only (snappier turn + brake; top speed untouched)
+      // Mk2: upside only — snappier turn/brake PLUS much faster accel and a higher top speed
+      upgrade(st) { st.turn *= 2; st.brakeDrag += 2; st.thrust *= 2; st.moveSpeed *= 1.4; },
       draw(ctx, r, inv, up) {
         const col = inv ? "#ffffff" : this.color;
         // fins behind the disc on Mk2 (approximate rear-most points for the helper)
