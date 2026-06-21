@@ -625,6 +625,7 @@
       if (remain > 0) {
         // collision/ram resistance protects the HULL, not the field (which already took full damage above)
         if (hullResist != null) remain *= hullResist;
+        const maxH = s.baseHull + s.stats.maxHull, before = s.hull;
         s.hull -= remain;
         s.invuln = Math.max(s.invuln, 0.45);
         this.shake(11); this.spark(s.x, s.y, "#ff6a6a", 8, 1.5);
@@ -635,7 +636,18 @@
         this.addPop(s.x, s.y, s.r * 4, "#ff5a6a", { fill: "#ffd0d0", w: 4 });
         this.addFloater(s.x, s.y - s.r, "-" + Math.round(remain), "#ff8080", { size: 18 });
         TD.Audio.playerHit();
-        if (s.hull <= 0) { s.hull = 0; this.gameOver(); }
+        if (s.hull <= 0) {
+          // fairness: a single hit that would kill you from a healthy hull (>40%) leaves you at 1% instead
+          if (before > maxH * 0.40) {
+            s.hull = Math.max(1, maxH * 0.01);
+            s.invuln = Math.max(s.invuln, 0.9);   // a moment of grace after the clutch save
+            this.screenFlash("#ffffff", 0.5);
+            this.addFloater(s.x, s.y - s.r, "CLUTCH!", "#fff3a0", { size: 22, vy: -30, life: 1.0 });
+            this.toast("⚠️ Clutch save — 1% hull!", "bad");
+          } else {
+            s.hull = 0; this.gameOver();
+          }
+        }
       }
     },
     // Enemies caught mid-charge shrug off the player's ram/collision damage:
