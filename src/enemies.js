@@ -505,11 +505,18 @@
               enemyShot(game, bx, by, back + k * 0.16 + M.rand(-0.05, 0.05), 210, 10, "#ffb24d", 6);
           }
           e.timer -= dt;
-          // aligned + wound up -> CHARGE
+          // aligned + wound up -> WINDUP (1s red-eye tell) -> charge
           if (e.timer <= 0 && Math.abs(M.angDiff(e.ang, ca)) < 0.14) {
-            e.mode = "charge"; e.chargeAng = ca; e.chargeT = 1.0 + e.phase * 0.25; e.glow = 1;
-            game.shake(5);
+            e.mode = "windup"; e.windup = 1.0; e.chargeAng = ca; e.glow = 1; game.shake(4);
           }
+        } else if (e.mode === "windup") {
+          // telegraph for a full second (eyes glow red), still tracking, then commit to the charge
+          e.vx *= 0.86; e.vy *= 0.86;
+          e.chargeAng = chargeAng(e, game, 70);
+          e.ang = M.angToward(e.ang, e.chargeAng, 1.5 * dt);
+          e.glow = 1;
+          e.windup -= dt;
+          if (e.windup <= 0) { e.mode = "charge"; e.chargeT = 1.0 + e.phase * 0.25; game.shake(5); }
         } else if (e.mode === "charge") {
           steer(e, e.chargeAng, 1100 * u, dt, (520 + e.phase * 70) * u);
           e.ang = e.chargeAng;
@@ -534,16 +541,28 @@
           ctx.closePath(); ctx.fillStyle = "rgba(255,160,60,.5)"; ctx.shadowColor = "#ffb24d"; ctx.shadowBlur = 14; ctx.fill(); ctx.shadowBlur = 0;
         }
         ctx.beginPath();
-        ctx.moveTo(e.r * 1.25, 0); ctx.lineTo(-e.r * 0.7, e.r); ctx.lineTo(-e.r * 0.3, 0); ctx.lineTo(-e.r * 0.7, -e.r);
+        ctx.moveTo(e.r * 1.25, 0); ctx.lineTo(-e.r * 0.7, e.r); ctx.lineTo(-e.r * 0.83, 0); ctx.lineTo(-e.r * 0.7, -e.r);
         ctx.closePath();
         neon(ctx, charging ? "#ffd14d" : e.color, charging ? "rgba(255,209,77,.25)" : "rgba(255,106,43,.16)", charging ? 4 : 3);
+        // --- horns (mirrored pair; tweak these knobs to move/spread them) ---
         ctx.strokeStyle = "#fff0c2"; ctx.lineWidth = 3; ctx.shadowColor = "#ffd14d"; ctx.shadowBlur = charging ? 12 : 6;
+        const hBaseX = e.r * 0.05;   // base along the body — smaller = further back (eyes sit at 0.5)
+        const hBaseY = e.r * 0.55;   // base spread — bigger = farther apart
+        const hTipX  = e.r * 0.0;    // tip reach (negative = sweeps toward the rear)
+        const hTipY  = e.r * 1.15;   // tip outward spread
         ctx.beginPath();
-        ctx.moveTo(e.r * 0.7, -e.r * 0.5); ctx.quadraticCurveTo(e.r * 1.5, -e.r * 0.7, e.r * 1.5, -e.r * 0.1);
-        ctx.moveTo(e.r * 0.7, e.r * 0.5); ctx.quadraticCurveTo(e.r * 1.5, e.r * 0.7, e.r * 1.5, e.r * 0.1);
+        for (const s of [-1, 1]) {
+          ctx.moveTo(hBaseX, s * hBaseY);
+          ctx.quadraticCurveTo(hBaseX + e.r * 0.4, s * (hBaseY + e.r * 0.45), hTipX, s * hTipY);
+        }
         ctx.stroke(); ctx.shadowBlur = 0;
-        ctx.fillStyle = charging ? "#fff" : "#ffd14d";
-        ctx.beginPath(); ctx.arc(e.r * 0.3, 0, e.r * 0.16, 0, M.TAU); ctx.fill();
+        // eyes — glow red through the windup tell and the charge, yellow otherwise
+        const telegraph = e.mode === "windup" || e.mode === "charge";
+        ctx.fillStyle = telegraph ? "#ff2d2d" : "#ffd14d";
+        ctx.shadowColor = "#ff2d2d"; ctx.shadowBlur = telegraph ? 12 : 0;
+        ctx.beginPath(); ctx.arc(e.r * 0.5, 9.5, e.r * 0.1, 0, M.TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(e.r * 0.5, -9.5, e.r * 0.1, 0, M.TAU); ctx.fill();
+        ctx.shadowBlur = 0;
       },
     },
 
