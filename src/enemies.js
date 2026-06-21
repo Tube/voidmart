@@ -28,6 +28,29 @@
     const sp = Math.hypot(e.vx, e.vy);
     if (maxSpeed && sp > maxSpeed) { e.vx = e.vx / sp * maxSpeed; e.vy = e.vy / sp * maxSpeed; }
   }
+  // Follow-the-leader body chain (position-based). The first segment trails the HEAD at a fixed
+  // distance `gap`, and each later segment holds `gap` behind the one in front of it. Because every
+  // position is driven only by where its leader physically is, the body flows along the path the
+  // head travelled — a pure turn (head rotating without moving) doesn't swing the tail at all — and
+  // the spacing stays coherent (no stretching/dotting). Call once per update; e.seg holds the chain.
+  function followChain(e, gap, dt) {
+    const seg = e.seg, n = seg.length; if (!n) return;
+    let lx = e.x, ly = e.y;
+    for (let i = 0; i < n; i++) {
+      const s = seg[i];
+      let dx = s.x - lx, dy = s.y - ly, d = Math.hypot(dx, dy);
+      if (d < 1e-4) { dx = -Math.cos(e.ang); dy = -Math.sin(e.ang); d = 1; }  // fallback: behind the head
+      s.x = lx + dx / d * gap; s.y = ly + dy / d * gap;
+      lx = s.x; ly = s.y;
+    }
+  }
+  // lay a fresh chain straight out behind the head (called from spawn so it starts as a tail)
+  function initChain(e, gap) {
+    for (let i = 0; i < e.seg.length; i++) {
+      e.seg[i].x = e.x - Math.cos(e.ang) * gap * (i + 1);
+      e.seg[i].y = e.y - Math.sin(e.ang) * gap * (i + 1);
+    }
+  }
 
   // ---- boss intelligence helpers ----
   // A point clamped to the arena interior — charge toward THIS, never through a wall.
@@ -358,7 +381,7 @@
           e.seg.push({ x: e.x, y: e.y, r: 15 * u * taper });
         }
         e.parts = e.seg;        // collision circles (used by game.hitEnemy)
-        e.history = [];
+        initChain(e, 12 * u);   // lay the body out behind the head
       },
       update(e, game, dt) {
         const u = TD.Screen.unit, W = TD.Screen.W, H = TD.Screen.H;
@@ -372,14 +395,8 @@
         e.ang = M.angToward(e.ang, desired, 2.6 * dt);
         const sp = 135 * u;
         e.vx = Math.cos(e.ang) * sp; e.vy = Math.sin(e.ang) * sp;
-        // record head trail, lay segments along it
-        e.history.unshift({ x: e.x, y: e.y });
-        const gap = 5, need = e.seg.length * gap + 2;
-        if (e.history.length > need) e.history.length = need;
-        for (let i = 0; i < e.seg.length; i++) {
-          const h = e.history[Math.min((i + 1) * gap, e.history.length - 1)];
-          if (h) { e.seg[i].x = h.x; e.seg[i].y = h.y; }
-        }
+        // body flows behind the head (follow-the-leader; pure turns don't swing the tail)
+        followChain(e, 12 * u, dt);
         e.phase = (e.hp / e.maxHp) < 0.35 ? 2 : (e.hp / e.maxHp) < 0.7 ? 1 : 0;
         e.ring += dt;
         // tail venom — constant pressure from the back of the wyrm
@@ -833,6 +850,7 @@
         const N = 24; e.seg = [];
         for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3))) });
         e.parts = e.seg;   // body collides — its higher contact makes the dragon hit harder than the wyrm
+        initChain(e, e.r * 0.42);   // lay the tail out behind the head
       },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
@@ -852,9 +870,8 @@
         if (e.zoneT <= 0) { e.zoneT = 2.6 - ph * 0.4; game.telegraphZone(game.ship.x + M.rand(-60, 60), game.ship.y + M.rand(-60, 60), 90 * u, 0.9, 16); }
         // phase-2 spiral
         if (ph >= 1) { e.spiralA += 0.4; if (Math.floor(e.t * 12) % 3 === 0) enemyShot(game, e.x, e.y, e.spiralA, 200, 10, "#ff7a9c", 5); }
-        // build the world-space segmented tail (visual + collision) trailing & swaying behind the head
-        { const step = e.r * 0.46; let px = e.x - Math.cos(e.ang) * e.r * 0.45, py = e.y - Math.sin(e.ang) * e.r * 0.45, a = e.ang + Math.PI;
-          for (let i = 0; i < e.seg.length; i++) { a += Math.sin(e.t * 3 + i * 0.6) * 0.2; px += Math.cos(a) * step; py += Math.sin(a) * step; e.seg[i].x = px; e.seg[i].y = py; } }
+        // tail flows behind the head (follow-the-leader; a turn no longer swings it like a weapon)
+        followChain(e, e.r * 0.42, dt);
       },
       draw(e, ctx) {
         // long, thin, segmented tail in WORLD frame (ctx translated to head, not yet rotated)
@@ -1120,6 +1137,7 @@
   };
 
   TD.ENEMIES = E;
+  TD.ENEMY_FX = { followChain, initChain };   // exposed for tests / the art editor
   // Boss roster — a boss wave (every 10 lvls) picks one at random. Add more keys here.
   // The 12 Chinese-zodiac bosses (the Premium Seller is now the Wyrm's head).
   TD.BOSSES = ["serpent", "rammer",
