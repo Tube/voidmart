@@ -825,7 +825,7 @@
 
     /* 🐉 DRAGON — Dragon-Brand Knockoff: sweeping flame-breath + thunder zones */
     z_dragon: {
-      name: "Dragon-Brand Knockoff", color: "#ff3b5c", baseHp: 1600, contact: 32, score: 2400, coins: 120, isBoss: true,
+      name: "Dragon-Brand Knockoff", color: "#ff3b5c", baseHp: 1600, contact: 32, score: 2400, coins: 120, isBoss: true, severTail: true,
       banner: ["🐉 DRAGON-BRAND KNOCKOFF", "As seen on a cart. Breathes fire."],
       spawn(e) { const u = TD.Screen.unit; e.r = 40 * u; e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0;
         const N = 24; e.seg = [];

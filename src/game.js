@@ -410,6 +410,8 @@
     /* ---------- combat helpers ---------- */
     damageEnemy(e, dmg, crit, at) {
       if (e.dead) return;
+      // destructible tail (dragon): a hit near a tail segment can sever it — everything behind blows up
+      if (e.def.severTail && at) this.severableTailHit(e, at, dmg);
       e.hp -= dmg; e.flashHit = 0.09;
       e.hitScale = Math.min(1.45, (e.hitScale || 1) + 0.32);
       if (crit) TD.Audio.crit(); else TD.Audio.hit();
@@ -423,6 +425,37 @@
       if (this.ship.stats.lifesteal > 0) this.healHull(dmg * this.ship.stats.lifesteal);
       this.spark(at ? at.x : e.x, at ? at.y : e.y, crit ? "#fff" : "#ffd98a", crit ? 5 : 2, crit ? 1.5 : 1);
       if (e.hp <= 0) this.killEnemy(e);
+    },
+    // a hit landing on a tail segment chips that segment's HP; when it breaks, that segment
+    // and EVERYTHING behind it (toward the tip) blows up and is removed.
+    severableTailHit(e, at, dmg) {
+      const seg = e.seg;
+      if (!seg || !seg.length) return;
+      let j = -1, bd = Infinity;
+      for (let i = 0; i < seg.length; i++) {
+        const s = seg[i], dx = s.x - at.x, dy = s.y - at.y, d2 = dx * dx + dy * dy;
+        if (d2 < bd) { bd = d2; j = i; }
+      }
+      if (j < 0) return;
+      const s = seg[j];
+      // ignore head hits (head closer than the nearest segment) and hits not actually on the tail
+      const hdx = e.x - at.x, hdy = e.y - at.y;
+      if (hdx * hdx + hdy * hdy < bd) return;
+      const reach = s.r + 16 * S.unit;
+      if (bd > reach * reach) return;
+      s.hp = (s.hp == null ? e.maxHp * 0.06 : s.hp) - dmg;
+      if (s.hp <= 0) this.severTail(e, j);
+    },
+    severTail(e, j) {
+      const seg = e.seg;
+      for (let k = j; k < seg.length; k++) {
+        const s = seg[k];
+        this.explode(s.x, s.y, e.def.color, s.r);
+        this.addPop(s.x, s.y, s.r * 3, "#ff7a9c", { w: 3, life: 0.35 });
+      }
+      seg.length = j;          // e.parts === e.seg, so the collision tail shrinks too
+      this.shake(5);
+      if (TD.Audio) TD.Audio.explosion(22);
     },
     explodeAt(x, y, radius, dmg, exclude) {
       if (radius <= 0) return;
