@@ -546,14 +546,14 @@
         neon(ctx, charging ? "#ffd14d" : e.color, charging ? "rgba(255,209,77,.25)" : "rgba(255,106,43,.16)", charging ? 4 : 3);
         // --- horns (mirrored pair; tweak these knobs to move/spread them) ---
         ctx.strokeStyle = "#fff0c2"; ctx.lineWidth = 3; ctx.shadowColor = "#ffd14d"; ctx.shadowBlur = charging ? 12 : 6;
-        const hBaseX = e.r * 0.05;   // base along the body — smaller = further back (eyes sit at 0.5)
-        const hBaseY = e.r * 0.55;   // base spread — bigger = farther apart
-        const hTipX  = e.r * 0.0;    // tip reach (negative = sweeps toward the rear)
-        const hTipY  = e.r * 1.15;   // tip outward spread
+        const hBaseX = e.r * 0.0;    // base along the body — smaller = further back (eyes sit at 0.5)
+        const hBaseY = e.r * 0.5;    // base spread — bigger = farther apart
+        const hTipX  = e.r * 0.85;   // tip reach (positive = tips curve FORWARD toward the nose)
+        const hTipY  = e.r * 0.7;    // tip spread (less than the bow below → tips hook inward at the nose)
         ctx.beginPath();
         for (const s of [-1, 1]) {
           ctx.moveTo(hBaseX, s * hBaseY);
-          ctx.quadraticCurveTo(hBaseX + e.r * 0.4, s * (hBaseY + e.r * 0.45), hTipX, s * hTipY);
+          ctx.quadraticCurveTo(hBaseX + e.r * 0.25, s * (hBaseY + e.r * 0.55), hTipX, s * hTipY);
         }
         ctx.stroke(); ctx.shadowBlur = 0;
         // eyes — glow red through the windup tell and the charge, yellow otherwise
