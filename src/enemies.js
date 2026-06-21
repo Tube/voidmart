@@ -365,10 +365,10 @@
 
     /* ===== BOSS — Premium Seller is now the Wyrm's head (see `serpent`) ===== */
 
-    /* ===== BOSS — Premium Seller 🐍 (the Wyrm) ===== */
+    /* ===== BOSS — Markdown Mamba 🐍 (the Wyrm) ===== */
     serpent: {
-      name: "Premium Seller", color: "#37f0a6", baseHp: 1700, contact: 24, score: 2200, coins: 110, isBoss: true,
-      banner: ["⭐ PREMIUM SELLER", "5-star rated. Now segmented for bulk savings."],
+      name: "Markdown Mamba", color: "#37f0a6", baseHp: 1700, contact: 24, score: 2200, coins: 110, isBoss: true,
+      banner: ["🐍 MARKDOWN MAMBA", "Coiled for clearance. Segmented for bulk savings."],
       spawn(e) {
         const u = TD.Screen.unit;
         e.r = 30 * u;
@@ -456,7 +456,7 @@
           ctx.shadowColor = e.color; ctx.shadowBlur = 10; ctx.fill(); ctx.stroke();
         }
         ctx.shadowBlur = 0;
-        // HEAD = the Premium Seller (star boss) grafted onto the wyrm
+        // HEAD — snake head: spiked crown + faceted skull with a green overtone
         const r = e.r * 1.5;
         ctx.save(); ctx.rotate(e.ring * 0.6);
         for (let i = 0; i < 5; i++) {
@@ -468,11 +468,11 @@
         ctx.restore(); ctx.shadowBlur = 0;
         ctx.save(); ctx.rotate(e.ang);
         poly(ctx, 10, r, 0);
-        neon(ctx, e.phase === 2 ? "#ff5a4d" : "#ffd23b", "rgba(255,210,59,.14)", 4);
+        neon(ctx, e.phase === 2 ? "#ff5a4d" : "#ffd23b", "rgba(100,255,255,.14)", 4);
         poly(ctx, 5, r * 0.6, e.ring);
-        neon(ctx, "#fff3c4", "rgba(255,210,59,.25)", 3);
+        neon(ctx, "#fff3c4", "rgba(100,210,59,.25)", 3);
         ctx.beginPath(); ctx.arc(0, 0, r * 0.26, 0, M.TAU);
-        neon(ctx, "#fff", "rgba(255,90,77,.4)", 2);
+        neon(ctx, "#fff", "rgba(40,190,77,.4)", 2);
         ctx.restore();
       },
     },
