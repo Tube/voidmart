@@ -270,8 +270,8 @@
         neon(ctx, e.charging > 0 ? "#ffd14d" : e.color, "rgba(255,157,43,.14)", 3.2);
         // armored front arc — alarming BLUE neon shield (big glow + bright core)
         ctx.lineCap = "round";
-        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.92, -0.8, 0.8);
-        ctx.strokeStyle = "#7cc4ff"; ctx.shadowColor = "#3aa0ff"; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.97, -0.9, 0.9);
+        ctx.strokeStyle = "#7cc4ff"; ctx.shadowColor = "#3aa0ff"; ctx.lineWidth = 7;
         ctx.shadowBlur = 30; ctx.stroke(); ctx.shadowBlur = 16; ctx.stroke();
         ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2.4; ctx.stroke();
         ctx.lineCap = "butt";
