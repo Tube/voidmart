@@ -68,10 +68,8 @@
   </div>
 </div>
 
-<script src="src/core.js?dev=1"></script>
-<script src="src/enemies.js?dev=1"></script>
 <script>
-(function(){
+function boot(){
   "use strict";
   const TD = window.TD, M = TD.math;
   TD.Screen.unit = 2; TD.Screen.W = 800; TD.Screen.H = 600; TD.Screen.dpr = 1;
@@ -171,6 +169,15 @@
   }
   document.getElementById('play').textContent='⏸ pause';
   select(sel.value); requestAnimationFrame(frame);
+}
+// Load core.js + enemies.js FRESH every open (unique query bypasses the service-worker cache),
+// so the editor always reflects the latest deployed art.
+(function(){
+  const v = '?fresh=' + Date.now();
+  function load(src, cb){ const s = document.createElement('script'); s.src = src; s.onload = cb;
+    s.onerror = function(){ document.body.innerHTML = '<p style="color:#f88;padding:24px">Failed to load ' + src + '</p>'; };
+    document.head.appendChild(s); }
+  load('src/core.js' + v, function(){ load('src/enemies.js' + v, boot); });
 })();
 </script>
 </body>
