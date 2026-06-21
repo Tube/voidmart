@@ -158,8 +158,8 @@
         if (up && !inv) { ctx.lineWidth = 3.4; ctx.strokeStyle = lighten(this.color, 0.3); ctx.shadowBlur = 20; ctx.stroke(); }
         ctx.shadowBlur = 0;
         ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.stroke();
-        // glass dome
-        ctx.beginPath(); ctx.ellipse(0, -r * 0.1, r * 0.58, r * 0.5, 0, 0, M.TAU);
+        // glass dome (centered in the disc so it stays symmetric when steering vertically)
+        ctx.beginPath(); ctx.ellipse(0, 0, r * 0.58, r * 0.5, 0, 0, M.TAU);
         ctx.fillStyle = inv ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.16)";
         ctx.lineWidth = 1.4; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.fill(); ctx.stroke();
         // rim running-lights
@@ -173,7 +173,7 @@
         const t = (typeof performance !== "undefined" ? performance.now() : 0) / 1000;
         const pulse = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(t * 2.0));
         const bright = lighten(this.color, 0.5);
-        ctx.beginPath(); ctx.arc(0, -r * 0.16, r * 0.17, 0, M.TAU);
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.17, 0, M.TAU);
         ctx.globalAlpha = inv ? 1 : pulse; ctx.fillStyle = inv ? "#ffffff" : bright;
         ctx.shadowColor = bright; ctx.shadowBlur = inv ? 0 : 10; ctx.fill();
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
