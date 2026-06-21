@@ -66,6 +66,7 @@
       id: "balanced", name: "Lucky Clover", icon: "🍀", seg: "#3dd980", color: "#3dd980",
       desc: "All-rounder hull with a thrifty streak: +10% crit chance and +15% coins from kills.",
       apply(st) { st.critChance += 0.10; st.coinDrop *= 1.15; },
+      upgrade(st) { st.critChance += 0.10; st.coinDrop *= 1.15; },   // Mk2: upside only
       draw(ctx, r, inv, up) {
         hull(ctx, this.color, inv, [[r * 1.4, 0], [-r, r * 0.85], [-r * 0.5, 0], [-r, -r * 0.85]], [r * 0.25, 0, r * 0.28], up);
       },
@@ -74,6 +75,7 @@
       id: "offense", name: "Glass Dagger", icon: "🗡️", seg: "#ff5a4d", color: "#ff5a4d",
       desc: "+25% fire rate, +20% damage — but 30% less field. Hits hard, folds fast.",
       apply(st) { st.fireRate *= 1.25; st.damage *= 1.2; st.maxShield = Math.round(st.maxShield * 0.7); },
+      upgrade(st) { st.fireRate *= 1.25; st.damage *= 1.2; },   // Mk2: upside only (no extra field loss)
       draw(ctx, r, inv, up) {
         hull(ctx, this.color, inv, [
           [r * 1.75, 0], [r * 0.1, r * 0.34], [-r * 0.9, r * 1.05], [-r * 0.5, r * 0.2],
@@ -86,6 +88,10 @@
       desc: "Huge field + hull and beefy regen. Slightly sluggish guns & thrust (−10% each).",
       apply(st) {
         st.thrust *= 0.9; st.fireRate *= 0.9;
+        st.maxShield = Math.round(st.maxShield * 1.5); st.maxHull += 40;
+        st.shieldRegen *= 1.4; st.shieldDelay = Math.max(0.6, st.shieldDelay - 0.5);
+      },
+      upgrade(st) {   // Mk2: upside only (no extra thrust/fire-rate penalty)
         st.maxShield = Math.round(st.maxShield * 1.5); st.maxHull += 40;
         st.shieldRegen *= 1.4; st.shieldDelay = Math.max(0.6, st.shieldDelay - 0.5);
       },
@@ -104,6 +110,7 @@
       id: "ramming", name: "Bumper Cart", icon: "🐏", seg: "#ffb13b", color: "#ffb13b",
       desc: "Built to bonk: massive ram damage, takes far less on impact, +20% thrust, −10% gun damage.",
       apply(st) { st.thrust *= 1.2; st.damage *= 0.9; st.bodyDmg += 55; st.ramArmor = Math.min(0.7, st.ramArmor + 0.45); },
+      upgrade(st) { st.thrust *= 1.2; st.bodyDmg += 55; st.ramArmor = Math.min(0.7, st.ramArmor + 0.45); },   // Mk2: upside only
       draw(ctx, r, inv, up) {
         hull(ctx, this.color, inv, [
           [r * 0.9, r * 0.72], [-r * 0.9, r * 0.85], [-r * 0.6, 0], [-r * 0.9, -r * 0.85], [r * 0.9, -r * 0.72],
@@ -119,6 +126,7 @@
       id: "cannon", name: "Siege Platform", icon: "💥", seg: "#c79bff", color: "#c79bff",
       desc: "+30% gun damage & +3 projectiles. Heavy: −25% thrust, −30% turn, −10% fire rate.",
       apply(st) { st.thrust *= 0.75; st.turn *= 0.7; st.fireRate *= 0.9; st.damage *= 1.3; st.projAdd += 3; },
+      upgrade(st) { st.damage *= 1.3; st.projAdd += 3; },   // Mk2: upside only (no extra thrust/turn/fire-rate penalty)
       draw(ctx, r, inv, up) {
         // heavy body
         hull(ctx, this.color, inv, [

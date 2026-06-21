@@ -181,7 +181,7 @@
     },
     upgradeShip() {
       const c = this.ship.chassis, st = this.ship.stats;
-      if (c && c.apply) c.apply(st);     // re-apply the hull's identity bonus (intensify)
+      if (c && c.upgrade) c.upgrade(st); // Mk2: amplify the hull's UPSIDE only (no extra downside)
       st.maxHull += 20;
       this.ship.hull = this.ship.baseHull + st.maxHull;     // top up to the new max
       this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, st.maxShield));
