@@ -639,7 +639,7 @@
           game.shake(7); game.addPop(e.x, e.y, e.r * 3, "#ff8a5a", { w: 4 }); } },
       draw(e, ctx) { ctx.rotate(e.ang); poly(ctx, 6, e.r, 0); neon(ctx, e.color, "rgba(255,90,60,.16)", 3.4);
         // armored front arc — threatening RED shield (distinguishes it from the blue Mega-Pallet)
-        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.95, -0.9, 0.9); ctx.strokeStyle = "#ff6a6a"; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.95, -0.9, 0.9); ctx.strokeStyle = "#ff6a6a"; ctx.lineWidth = 10;
         ctx.shadowColor = "#ff1f1f"; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0; },
     },
 
