@@ -142,6 +142,43 @@
         ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.stroke();
       },
     },
+    {
+      id: "saucer", name: "Hover Cart", icon: "🛸", seg: "#2fe6c8", color: "#2fe6c8",
+      desc: "Round hover-disc: near-instant turning and quick braking for pinpoint control. No combat bonuses.",
+      apply(st) { st.turn *= 8; st.brakeDrag = 4; },
+      upgrade(st) { st.turn *= 2; st.brakeDrag += 2; },   // Mk2: upside only (snappier turn + brake; top speed untouched)
+      draw(ctx, r, inv, up) {
+        const col = inv ? "#ffffff" : this.color;
+        // fins behind the disc on Mk2 (approximate rear-most points for the helper)
+        if (up && !inv) fins(ctx, [[-r * 1.3, 0], [r * 1.3, r * 0.78], [r * 1.3, -r * 0.78]], this.color);
+        // saucer disc
+        ctx.beginPath(); ctx.ellipse(0, 0, r * 1.3, r * 0.78, 0, 0, M.TAU);
+        ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 2.4;
+        ctx.shadowColor = this.color; ctx.shadowBlur = up ? 28 : 15; ctx.fill(); ctx.stroke();
+        if (up && !inv) { ctx.lineWidth = 3.4; ctx.strokeStyle = lighten(this.color, 0.3); ctx.shadowBlur = 20; ctx.stroke(); }
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.stroke();
+        // glass dome
+        ctx.beginPath(); ctx.ellipse(0, -r * 0.1, r * 0.58, r * 0.5, 0, 0, M.TAU);
+        ctx.fillStyle = inv ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.16)";
+        ctx.lineWidth = 1.4; ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.fill(); ctx.stroke();
+        // rim running-lights
+        const dot = inv ? "#ffffff" : lighten(this.color, 0.4);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * M.TAU;
+          ctx.beginPath(); ctx.arc(Math.cos(a) * r * 1.16, Math.sin(a) * r * 0.66, r * 0.09, 0, M.TAU);
+          ctx.fillStyle = dot; ctx.fill();
+        }
+        // slow-blinking neon dome light
+        const t = (typeof performance !== "undefined" ? performance.now() : 0) / 1000;
+        const pulse = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(t * 2.0));
+        const bright = lighten(this.color, 0.5);
+        ctx.beginPath(); ctx.arc(0, -r * 0.16, r * 0.17, 0, M.TAU);
+        ctx.globalAlpha = inv ? 1 : pulse; ctx.fillStyle = inv ? "#ffffff" : bright;
+        ctx.shadowColor = bright; ctx.shadowBlur = inv ? 0 : 10; ctx.fill();
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      },
+    },
   ];
 
   // The free starter hull. Same chassis + base stats as the Lucky Clover, but
@@ -152,7 +189,7 @@
     id: "default", name: "Store Brand", icon: "🛒", seg: "#b9bdc9", color: "#b9bdc9",
     isBody: true,
     desc: "Standard-issue hull. No frills, no bonuses — but it flies.",
-    draw(ctx, r, inv) {
+    draw(ctx, r, inv, up) {
       hull(ctx, this.color, inv, [[r * 1.4, 0], [-r, r * 0.85], [-r * 0.5, 0], [-r, -r * 0.85]], [r * 0.25, 0, r * 0.28], up);
     },
   };

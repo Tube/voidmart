@@ -23,6 +23,7 @@
       reflect: false, thorns: 0, dodge: 0, blink: false,
       hullDmgCap: 0,            // 0 = none; else max fraction of max-hull lost per 0.5s window
       fieldFlatDR: 0,           // flat damage subtracted from each hit while the field is up
+      brakeDrag: 0,             // extra deceleration applied ONLY while coasting (not thrusting) — quick stop, no top-speed loss
     };
   }
 
@@ -931,6 +932,7 @@
       this.updatePrizes(dt);
       const tdL = this.prizeLvl("twoday");
       const moveBoost = 1 + 0.16 * tdL;
+      let thrusting = false;
       if (TD.Input.active) {
         const tx = TD.Input.x, ty = TD.Input.y;
         const dl = M.wrapDelta(s.x, s.y, tx, ty, S.W, S.H);
@@ -939,6 +941,7 @@
         s.angle = M.angToward(s.angle, target, turn);
         // thrust toward facing if pointer isn't basically on top of the ship
         if (dl.d > s.r * 0.8) {
+          thrusting = true;
           const f = 780 * st.thrust * S.unit * moveBoost;
           s.vx += Math.cos(s.angle) * f * dt;
           s.vy += Math.sin(s.angle) * f * dt;
@@ -948,8 +951,10 @@
         } else s.flame = Math.max(0, s.flame - dt * 6);
       } else s.flame = Math.max(0, s.flame - dt * 6);
 
-      // drag + speed cap
-      const drag = Math.exp(-0.9 * dt);
+      // drag + speed cap — extra brake drag only while coasting, so quick-stop hulls
+      // pull up fast without sacrificing top speed under thrust
+      const dragRate = 0.9 + (thrusting ? 0 : (st.brakeDrag || 0));
+      const drag = Math.exp(-dragRate * dt);
       s.vx *= drag; s.vy *= drag;
       const maxSp = 320 * st.moveSpeed * S.unit * moveBoost;
       const sp = Math.hypot(s.vx, s.vy);
