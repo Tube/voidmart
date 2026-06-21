@@ -19,9 +19,26 @@
     return "rgb(" + r + "," + g + "," + b + ")";
   }
 
+  // small swept fins for upgraded (Mark-2) hulls — drawn behind the body, sized off the rear
+  function fins(ctx, pts, color) {
+    let minX = Infinity, maxY = 0;
+    for (const p of pts) { if (p[0] < minX) minX = p[0]; const ay = Math.abs(p[1]); if (ay > maxY) maxY = ay; }
+    const tip = lighten(color, 0.2), edge = lighten(color, 0.55);
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(minX * 0.45, s * maxY * 0.55);
+      ctx.lineTo(minX * 1.4, s * maxY * 1.05);
+      ctx.lineTo(minX * 0.65, s * maxY * 0.95);
+      ctx.closePath();
+      ctx.fillStyle = tip; ctx.strokeStyle = edge; ctx.lineWidth = 1.4;
+      ctx.shadowColor = color; ctx.shadowBlur = 8; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+    }
+  }
+
   // closed-poly hull: colored glow stroke, bright inner line, and a slow-blinking neon cockpit dot.
-  // `up` (Mark-2 upgrade) gives the outline a stronger glowing halo so upgraded hulls read distinct.
+  // `up` (Mark-2 upgrade) gives the outline a stronger glowing halo + small swept fins so upgraded hulls read distinct.
   function hull(ctx, color, inv, pts, cockpit, up) {
+    if (up && !inv) fins(ctx, pts, color);   // fins go behind the body
     ctx.beginPath();
     for (let i = 0; i < pts.length; i++) (i ? ctx.lineTo : ctx.moveTo).call(ctx, pts[i][0], pts[i][1]);
     ctx.closePath();
