@@ -608,16 +608,18 @@
 
     /* 5 — Knockoff Hydra: periodically spits out swarms of mobs */
     hydra: {
-      name: "Knockoff Hydra", color: "#7af06a", baseHp: 300, contact: 18, score: 500, coins: 90, isMini: true,
+      name: "Knockoff Hydra", color: "#7af06a", baseHp: 240, contact: 18, score: 500, coins: 90, isMini: true,
       banner: ["🐉 KNOCKOFF HYDRA", "Cut one deal, two more appear."],
       spawn(e) { const u = TD.Screen.unit; e.r = 22 * u; e.spawnT = 2.0; e.t = 0; },
       update(e, game, dt) { const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
         steer(e, d.ang, 40 * u, dt, 48 * u); e.spawnT -= dt;
-        if (e.spawnT <= 0 && game.enemies.length < 28) { e.spawnT = 3.2;
-          for (let i = 0; i < 2; i++) { const a = M.rand(0, M.TAU);
+        if (e.spawnT <= 0) { e.spawnT = 3.2;
+          let alive = 0; for (const x of game.enemies) if (!x.dead && x.hydra === e) alive++;  // cap this Hydra's minions at 5
+          const room = Math.min(2, 5 - alive);
+          for (let i = 0; i < room && game.enemies.length < 28; i++) { const a = M.rand(0, M.TAU);
             const m = game.spawnEnemy(M.chance(0.5) ? "seeker" : "weaver", e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, { hpScale: e.hpScale * 0.7 });
-            m.hp = 1; m.maxHp = 1; m.color = "#7af06a"; }   // Hydra minions: glass (1 HP) + green
-          game.toast("🐉 Hydra spat out minions!", "bad"); } },
+            m.hp = 1; m.maxHp = 1; m.color = "#7af06a"; m.hydra = e; }   // Hydra minions: glass (1 HP) + green
+          if (room > 0) game.toast("🐉 Hydra spat out minions!", "bad"); } },
       draw(e, ctx) { const pls = 1 + Math.sin(e.t * 4) * 0.05; ctx.scale(pls, pls);
         poly(ctx, 7, e.r, e.t * 0.5); neon(ctx, e.color, "rgba(122,240,106,.18)", 3);
         for (let i = 0; i < 3; i++) { const a = e.t + i / 3 * M.TAU;
