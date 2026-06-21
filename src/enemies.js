@@ -773,7 +773,7 @@
         // tail
         ctx.beginPath(); ctx.moveTo(-e.r * 0.7, 0);
         for (let i = 1; i <= 5; i++) ctx.lineTo(-e.r * (0.7 + i * 0.32), Math.sin(e.tail + i) * e.r * 0.18);
-        ctx.strokeStyle = e.color; ctx.lineWidth = 3; ctx.shadowColor = e.color; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#ff5a7a"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.shadowColor = "#ff5a7a"; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0; ctx.lineCap = "butt";
         poly(ctx, 7, e.r, 0); neon(ctx, e.color, "rgba(185,196,208,.16)", 3);
         // ears
         for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.r * 0.5, s * e.r * 0.7, e.r * 0.34, 0, M.TAU); neon(ctx, e.color, "rgba(185,196,208,.2)", 2); }
