@@ -1464,7 +1464,7 @@
         // hull — chassis-specific silhouette
         const inv = (s.invuln > 0 || s.dodgeFlash > 0) && this.state === "play";
         if (s.chassis && s.chassis.draw) {
-          s.chassis.draw(ctx, s.r, inv);
+          s.chassis.draw(ctx, s.r, inv, this.shipUpgradeDone);
         } else {
           ctx.beginPath();
           ctx.moveTo(s.r * 1.4, 0); ctx.lineTo(-s.r, s.r * 0.85); ctx.lineTo(-s.r * 0.5, 0); ctx.lineTo(-s.r, -s.r * 0.85);
