@@ -76,6 +76,11 @@
       this.el.hud.classList.add("hidden");
       this.el.pauseBtn.classList.add("hidden");
       this.renderOffers(g, offers);
+      // brief input lock so a held tap from gameplay can't instantly buy before you read the cards
+      const cards = this.el.shopCards;
+      cards.style.pointerEvents = "none";
+      clearTimeout(this._shopArmT);
+      this._shopArmT = setTimeout(() => { cards.style.pointerEvents = ""; }, 200);
       this.el.muteBtn.classList.add("hidden");
       // "See other deals" (reroll) is a paid perk — hide it for free players.
       const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
