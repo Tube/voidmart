@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOIDMART — Enemy Art Editor</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:#05050f;color:#e9e6f5;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  header{padding:10px 14px;background:#0c0c1e;border-bottom:1px solid #23204a;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;color:#ff8a2b;letter-spacing:.04em}
+  .wrap{display:flex;gap:14px;padding:14px;align-items:flex-start;flex-wrap:wrap}
+  .pane{background:#0c0c1e;border:1px solid #23204a;border-radius:12px;padding:12px}
+  canvas{background:#0a0a1c;border-radius:10px;display:block}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:10px;font-size:13px}
+  .controls label{display:flex;gap:6px;align-items:center;white-space:nowrap}
+  select,input[type=text]{background:#14112a;color:#e9e6f5;border:1px solid #2a2150;border-radius:7px;padding:5px 8px;font:inherit}
+  input[type=range]{vertical-align:middle}
+  button{background:linear-gradient(180deg,#ffa23b,#ff6a13);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer}
+  button.alt{background:#23204a;color:#cdd2e6}
+  textarea{width:520px;max-width:90vw;height:440px;background:#0a0a18;color:#d8f5d8;border:1px solid #2a2150;border-radius:10px;
+    padding:10px;font-family:"Space Mono",ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.4;resize:both;tab-size:2}
+  .err{color:#ff6a7a;font-size:12px;min-height:16px;margin-top:6px;font-family:ui-monospace,monospace}
+  .hint{color:#8a85a6;font-size:12px;line-height:1.5;max-width:520px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛒 VOIDMART · Enemy Art Editor</h1>
+  <label>Enemy <select id="enemy"></select></label>
+  <button id="respawn" class="alt">↻ respawn</button>
+  <span class="hint" id="meta"></span>
+</header>
+
+<div class="wrap">
+  <div class="pane">
+    <canvas id="preview" width="460" height="460"></canvas>
+    <div class="controls">
+      <button id="play" class="alt">⏸ pause</button>
+      <label><input type="checkbox" id="sim" checked> simulate AI</label>
+      <label><input type="checkbox" id="hit"> hitboxes</label>
+      <label><input type="checkbox" id="bg"> light bg</label>
+      <label>zoom <input type="range" id="zoom" min="0.4" max="3" step="0.1" value="1.4"></label>
+    </div>
+    <div class="controls">
+      <label>time <input type="range" id="time" min="0" max="8" step="0.02" value="0"></label>
+      <label>mode <input type="text" id="mode" placeholder="(e.mode override)" size="10"></label>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="row">
+      <strong style="font-size:13px">draw(e, ctx) — edit live</strong>
+      <button id="copy" class="alt">⧉ copy this</button>
+      <button id="reset" class="alt">⟲ revert this</button>
+      <button id="export">⤓ export all edits</button>
+    </div>
+    <div style="margin-top:8px"><textarea id="code" spellcheck="false"></textarea></div>
+    <div class="err" id="err"></div>
+    <div class="hint">
+      Edit the <code>draw(e, ctx)</code> body and the preview updates as you type. Helpers available:
+      <code>poly(ctx,sides,r,rot)</code>, <code>neon(ctx,color,fill,width)</code>, <code>M</code> (math, <code>M.TAU</code>), and the
+      enemy instance <code>e</code> (<code>e.r</code> radius, <code>e.t</code> time, <code>e.ang</code>, <code>e.mode</code>, <code>e.color</code>…).
+      Keep the function named <code>draw</code>. “Export all edits” downloads every change so it can be merged into <code>enemies.js</code>.
+    </div>
+  </div>
+</div>
+
+<script src="src/core.js?dev=1"></script>
+<script src="src/enemies.js?dev=1"></script>
+<script>
+(function(){
+  "use strict";
+  const TD = window.TD, M = TD.math;
+  TD.Screen.unit = 2; TD.Screen.W = 800; TD.Screen.H = 600; TD.Screen.dpr = 1;
+
+  // --- replicate enemies.js draw helpers so edited draws can use them ---
+  function poly(ctx, n, r, rot, jitter){
+    ctx.beginPath();
+    for (let i=0;i<n;i++){ const a=rot+(i/n)*M.TAU, rr=jitter?r*jitter[i%jitter.length]:r,
+      x=Math.cos(a)*rr, y=Math.sin(a)*rr; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.closePath();
+  }
+  function neon(ctx, color, fill, w){
+    const lw=w||2.4; if(fill){ctx.fillStyle=fill;ctx.fill();}
+    ctx.lineWidth=lw+1; ctx.strokeStyle=color; ctx.shadowColor=color; ctx.shadowBlur=18; ctx.stroke();
+    ctx.shadowBlur=0; ctx.lineWidth=Math.max(1,lw*0.6); ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.stroke();
+  }
+
+  const cv=document.getElementById('preview'), ctx=cv.getContext('2d');
+  const sel=document.getElementById('enemy'), code=document.getElementById('code'), errEl=document.getElementById('err'), meta=document.getElementById('meta');
+  const edits={}; let cur=null, playing=true, simulate=true, showHit=false, bgLight=false, zoom=1.4;
+
+  // populate dropdown grouped
+  function add(label, keys){ if(!keys.length)return; const og=document.createElement('optgroup'); og.label=label;
+    keys.forEach(k=>{ if(!TD.ENEMIES[k])return; const o=document.createElement('option'); o.value=k;
+      o.textContent=(TD.ENEMIES[k].name||k)+'  ['+k+']'; og.appendChild(o); }); sel.appendChild(og); }
+  const all=Object.keys(TD.ENEMIES);
+  const bosses=TD.BOSSES||[], minis=TD.MINIBOSSES||[];
+  add('Bosses', bosses);
+  add('Minibosses', minis);
+  add('Commons', all.filter(k=>bosses.indexOf(k)<0 && minis.indexOf(k)<0));
+
+  function stubGame(){
+    const base={ ship:{x:400,y:540,r:13}, enemies:[], enemyShots:[], coins:[], particles:[], projectiles:[],
+      lightnings:[], level:10, bossesBeaten:0, difficulty(){return 1;},
+      spawnEnemy(){ return {x:0,y:0,r:1,dead:false,vx:0,vy:0}; } };
+    return new Proxy(base,{get(t,k){ return (k in t)?t[k]:function(){}; }});
+  }
+  function buildInstance(type){
+    const def=TD.ENEMIES[type];
+    const e={type,def,x:400,y:300,vx:0,vy:0,ang:0,dead:false,t:0,hp:1000,maxHp:1000,hpScale:1};
+    try{ def.spawn(e); }catch(err){}
+    return e;
+  }
+  function compile(src){
+    try{ const fn=eval('({'+src+'}).draw'); if(typeof fn!=='function') throw new Error('expected draw(e, ctx){…}');
+      errEl.textContent=''; return fn; }
+    catch(err){ errEl.textContent='⚠ '+err.message; return null; }
+  }
+  function select(type){
+    const def=TD.ENEMIES[type];
+    cur={ type, e:buildInstance(type), game:stubGame(), fn:null };
+    const src=(edits[type]!=null)?edits[type]:def.draw.toString();
+    code.value=src; cur.fn=compile(src)||def.draw;
+    meta.textContent='r≈'+Math.round(cur.e.r)+'px · '+(def.isBoss?'boss':def.isMini?'miniboss':'common')+(edits[type]!=null?' · (edited)':'');
+  }
+
+  sel.addEventListener('change',()=>select(sel.value));
+  document.getElementById('respawn').addEventListener('click',()=>{ if(cur){ cur.e=buildInstance(cur.type); cur.game=stubGame(); }});
+  code.addEventListener('input',()=>{ if(!cur)return; edits[cur.type]=code.value; const fn=compile(code.value); if(fn)cur.fn=fn; });
+  document.getElementById('play').addEventListener('click',(ev)=>{ playing=!playing; ev.target.textContent=playing?'⏸ pause':'▶ play'; });
+  document.getElementById('sim').addEventListener('change',e=>simulate=e.target.checked);
+  document.getElementById('hit').addEventListener('change',e=>showHit=e.target.checked);
+  document.getElementById('bg').addEventListener('change',e=>bgLight=e.target.checked);
+  document.getElementById('zoom').addEventListener('input',e=>zoom=+e.target.value);
+  document.getElementById('time').addEventListener('input',e=>{ if(cur){ cur.e.t=+e.target.value; }});
+  document.getElementById('mode').addEventListener('input',e=>{ if(cur){ cur.e.mode=e.target.value||undefined; }});
+  document.getElementById('copy').addEventListener('click',()=>{ navigator.clipboard && navigator.clipboard.writeText(code.value); });
+  document.getElementById('reset').addEventListener('click',()=>{ if(!cur)return; delete edits[cur.type]; select(cur.type); });
+  document.getElementById('export').addEventListener('click',()=>{
+    const keys=Object.keys(edits); if(!keys.length){ alert('No edits yet.'); return; }
+    let out='// VOIDMART enemy draw edits — merge each block into its def in src/enemies.js\n\n';
+    keys.forEach(k=>{ out+='=== '+k+' ('+((TD.ENEMIES[k]&&TD.ENEMIES[k].name)||k)+') ===\n'+edits[k]+'\n\n'; });
+    const blob=new Blob([out],{type:'text/plain'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='voidmart-art-edits.txt'; a.click();
+  });
+
+  let last=performance.now();
+  function frame(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(cur){
+      const e=cur.e;
+      if(playing){
+        if(simulate){ try{ e.def.update(e,cur.game,dt); e.x+=e.vx*dt; e.y+=e.vy*dt; }catch(err){} }
+        else { e.t=(e.t||0)+dt; }
+      }
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.fillStyle=bgLight?'#23232e':'#0a0a1c'; ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.save(); ctx.translate(cv.width/2, cv.height/2); ctx.scale(zoom,zoom);
+      try{ cur.fn(e,ctx); }catch(err){ errEl.textContent='⚠ runtime: '+err.message; }
+      if(showHit){ ctx.save(); ctx.lineWidth=1/zoom; ctx.strokeStyle='rgba(255,90,90,.85)';
+        ctx.beginPath(); ctx.arc(0,0,e.r,0,M.TAU); ctx.stroke();
+        if(e.parts) for(const p of e.parts){ ctx.beginPath(); ctx.arc(p.x-e.x,p.y-e.y,p.r,0,M.TAU); ctx.stroke(); }
+        ctx.restore(); }
+      ctx.restore();
+    }
+    requestAnimationFrame(frame);
+  }
+  document.getElementById('play').textContent='⏸ pause';
+  select(sel.value); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
