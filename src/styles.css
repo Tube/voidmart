@@ -254,6 +254,10 @@ canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block;touch
   background:radial-gradient(circle at 50% 35%,#241a44,#0c0a1c);border:1.5px solid rgba(255,255,255,.08);
 }
 @media (max-width:520px){.deal-thumb{width:78px;height:64px;aspect-ratio:auto;}}
+/* slot-machine reel feedback */
+.deal.reeling .deal-thumb span{filter:blur(0.7px) drop-shadow(0 0 10px rgba(255,255,255,.45));}
+.deal.reel-land{animation:dealLand .26s ease;}
+@keyframes dealLand{0%{transform:scale(1.07);}60%{transform:scale(.98);}100%{transform:scale(1);}}
 .deal-dept{font-size:clamp(9px,2.6vw,10px);font-weight:900;letter-spacing:.06em;color:var(--orange);text-transform:uppercase;overflow-wrap:anywhere;}
 .deal-name{font-family:"Baloo 2";font-weight:700;font-size:clamp(13px,2.4vw,16px);color:var(--ink);line-height:1.08;overflow-wrap:anywhere;hyphens:auto;}
 .deal-desc{font-size:clamp(11px,2vw,13px);font-weight:600;color:#6a6080;line-height:1.25;flex:1;overflow-wrap:anywhere;}

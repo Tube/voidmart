@@ -76,11 +76,12 @@
       this.el.hud.classList.add("hidden");
       this.el.pauseBtn.classList.add("hidden");
       this.renderOffers(g, offers);
-      // brief input lock so a held tap from gameplay can't instantly buy before you read the cards
+      // lock clicks until the slot reels settle (reelOffers re-enables on landing); this is also
+      // a safety fallback in case the reel is interrupted.
       const cards = this.el.shopCards;
       cards.style.pointerEvents = "none";
       clearTimeout(this._shopArmT);
-      this._shopArmT = setTimeout(() => { cards.style.pointerEvents = ""; }, 200);
+      this._shopArmT = setTimeout(() => { cards.style.pointerEvents = ""; }, 2500);
       this.el.muteBtn.classList.add("hidden");
       // "See other deals" (reroll) is a paid perk — hide it for free players.
       const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
@@ -129,6 +130,37 @@
           '</div>';
         card.addEventListener("click", () => { this.closeFlash(); g.chooseUpgrade(u); });
         wrap.appendChild(card);
+      });
+      this.reelOffers();
+    },
+    // slot-machine reel: spin each card's icon+name through random deals, landing on the real
+    // one (staggered left→right). Clicks stay locked until the last reel settles.
+    reelOffers() {
+      const cards = [...this.el.shopCards.children];
+      const pool = TD.Upgrades.LIST;
+      cards.forEach((card, i) => {
+        const iconEl = card.querySelector(".deal-thumb span");
+        const nameEl = card.querySelector(".deal-name");
+        if (!iconEl || !nameEl) return;
+        const realIcon = iconEl.textContent, realName = nameEl.textContent;
+        card.classList.add("reeling");
+        let t = 0; const total = 10 + i * 4;     // later cards spin longer → land left to right
+        const spin = () => {
+          if (t >= total) {
+            iconEl.textContent = realIcon; nameEl.textContent = realName;
+            card.classList.remove("reeling"); card.classList.add("reel-land");
+            setTimeout(() => card.classList.remove("reel-land"), 260);
+            if (i === cards.length - 1) { clearTimeout(this._shopArmT); this.el.shopCards.style.pointerEvents = ""; }
+            return;
+          }
+          const r = pool[(Math.random() * pool.length) | 0];
+          iconEl.textContent = r.icon; nameEl.textContent = r.name;
+          if (TD.Audio && TD.Audio.ui) TD.Audio.ui();
+          t++;
+          const p = t / total;
+          setTimeout(spin, 28 + p * p * 120);    // start fast, decelerate
+        };
+        setTimeout(spin, i * 70);                // stagger the starts
       });
     },
     closeFlash() { clearInterval(this._flashI); },
