@@ -78,6 +78,9 @@
         desc: "A crackling aura damages anything that hugs you.", apply: (s) => s.stats.thorns += 26 }),
     U({ id: "dodge", name: "Phantom Return Policy", icon: "👻", dept: "Force Fields", rarity: "rare", max: 4,
         desc: "+12% chance to phase through a hit entirely.", apply: (s) => s.stats.dodge = Math.min(0.6, s.stats.dodge + 0.12) }),
+    U({ id: "fielddr", name: "Packing Peanuts", icon: "🥜", dept: "Force Fields", rarity: "rare", max: 5,
+        desc: "While your field is up, every hit deals 5 less damage (stacks to −25). Ships safely.",
+        apply: (s) => { s.stats.fieldFlatDR = Math.min(s.mods.fielddr || 1, 5) * 5; } }),
     U({ id: "blink", name: "Time-Limited Warp", icon: "🌀", dept: "Force Fields", rarity: "legendary", max: 1,
         desc: "When your field breaks, blink to safety, briefly invincible.", apply: (s) => s.stats.blink = true }),
 

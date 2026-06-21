@@ -22,6 +22,7 @@
       homing: 0, splash: 0, splashDmg: 0.4,
       reflect: false, thorns: 0, dodge: 0, blink: false,
       hullDmgCap: 0,            // 0 = none; else max fraction of max-hull lost per 0.5s window
+      fieldFlatDR: 0,           // flat damage subtracted from each hit while the field is up
     };
   }
 
@@ -613,6 +614,8 @@
       const rt = this.prizeLvl("retaliate");
       if (rt) this.retaliate(rt);
       let remain = dmg;
+      // Packing Peanuts: while the field is up, every hit deals a flat amount less
+      if (s.shield > 0 && s.stats.fieldFlatDR > 0) remain = Math.max(0, remain - s.stats.fieldFlatDR);
       if (s.shield > 0) {
         const ab = Math.min(s.shield, remain);
         s.shield -= ab; remain -= ab;
