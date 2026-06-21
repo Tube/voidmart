@@ -94,6 +94,9 @@
         desc: "+2.5/s hull regen. Not FDA approved. Not anything approved.", apply: (s) => s.stats.hullRegen += 2.5 }),
     U({ id: "lifesteal", name: "Vampire Mods (Used)", icon: "🩸", dept: "Hull & Body", rarity: "epic", max: 3,
         desc: "Heal hull for 6% of damage you deal. Previously owned.", apply: (s) => s.stats.lifesteal += 0.06 }),
+    U({ id: "hpcap", name: "Liability Cap™", icon: "🧯", dept: "Hull & Body", rarity: "epic", max: 3, weight: 0.6,
+        desc: "Hull can't lose more than 40%→35%→30% of max HP per ½s (stacks, max 3). Field unaffected.",
+        apply: (s) => { const lvl = Math.min(s.mods.hpcap || 1, 3); s.stats.hullDmgCap = [0.40, 0.35, 0.30][lvl - 1]; } }),
 
     /* ---------------- ADD-ONS (utility) ---------------- */
     U({ id: "magnet", name: "Industrial Coin Magnet", icon: "🧲", dept: "Add-ons", rarity: "common", max: 4,

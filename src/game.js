@@ -21,6 +21,7 @@
       bodyDmg: 0, ramArmor: 0, lifesteal: 0,
       homing: 0, splash: 0, splashDmg: 0.4,
       reflect: false, thorns: 0, dodge: 0, blink: false,
+      hullDmgCap: 0,            // 0 = none; else max fraction of max-hull lost per 0.5s window
     };
   }
 
@@ -626,6 +627,12 @@
         // collision/ram resistance protects the HULL, not the field (which already took full damage above)
         if (hullResist != null) remain *= hullResist;
         const maxH = s.baseHull + s.stats.maxHull, before = s.hull;
+        // Liability Cap: limit hull loss to a fraction of max HP per rolling 0.5s window (field unaffected)
+        if (s.stats.hullDmgCap > 0) {
+          const budget = maxH * s.stats.hullDmgCap - (s.hullDmgWindow || 0);
+          remain = Math.min(remain, Math.max(0, budget));
+          s.hullDmgWindow = (s.hullDmgWindow || 0) + remain;
+        }
         s.hull -= remain;
         s.invuln = Math.max(s.invuln, 0.45);
         this.shake(11); this.spark(s.x, s.y, "#ff6a6a", 8, 1.5);
@@ -958,6 +965,9 @@
       }
       // hull regen
       if (st.hullRegen > 0) this.healHull(st.hullRegen * dt);
+      // Liability Cap: reset the per-0.5s hull-damage budget
+      s.hullDmgT = (s.hullDmgT || 0) - dt;
+      if (s.hullDmgT <= 0) { s.hullDmgT = 0.5; s.hullDmgWindow = 0; }
       // low-hull klaxon — loops while hull is under 10%
       const maxH = s.baseHull + st.maxHull;
       if (s.hull > 0 && s.hull / maxH < 0.10) {
