@@ -613,10 +613,10 @@
     reaper: {
       name: "Refund Reaper", color: "#37f0ff", baseHp: 220, contact: 20, score: 440, coins: 85, isMini: true,
       banner: ["💀 REFUND REAPER", "Your purchase is being… reclaimed."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 16 * u; e.blink = 1.3; },
+      spawn(e) { const u = TD.Screen.unit; e.r = 16 * u; e.blink = 1.82; },
       update(e, game, dt) { const u = TD.Screen.unit, d = dToShip(e, game);
         e.vx *= 0.92; e.vy *= 0.92; e.blink -= dt;
-        if (e.blink <= 0) { e.blink = 1.8;
+        if (e.blink <= 0) { e.blink = 2.52;   // +40% dwell — lingers between blinks
           game.addPop(e.x, e.y, e.r * 3, "#37f0ff", { w: 3, life: 0.25 });
           const aa = M.rand(0, M.TAU), dist = 200 * u;
           e.x = game.ship.x + Math.cos(aa) * dist; e.y = game.ship.y + Math.sin(aa) * dist;
@@ -838,12 +838,12 @@
     z_rabbit: {
       name: "Lucky Rabbit (Refurb)", color: "#ff8fd0", baseHp: 1050, contact: 22, score: 1700, coins: 88, isBoss: true,
       banner: ["🐇 LUCKY RABBIT (REFURB)", "Hops the queue. Drops moon-bombs."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 24 * u; e.hop = 1.3; e.t = 0; e.squash = 0; },
+      spawn(e) { const u = TD.Screen.unit; e.r = 24 * u; e.hop = 1.82; e.t = 0; e.squash = 0; },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
         e.vx *= 0.9; e.vy *= 0.9; e.hop -= dt; if (e.squash > 0) e.squash -= dt;
         if (e.hop <= 0) {
-          e.hop = M.rand(1.0, 1.5); e.squash = 0.18;
+          e.hop = M.rand(1.4, 2.1); e.squash = 0.18;   // +40% dwell — stays put longer between hops
           // landing ring + a moon-bomb mine, then teleport-hop to a flanking spot
           const n = 12 + (((e.maxHp - e.hp) / e.maxHp) > 0.5 ? 6 : 0), off = M.rand(0, 1);
           for (let i = 0; i < n; i++) enemyShot(game, e.x, e.y, (i / n + off) * M.TAU, 170, 11, "#ffc0e8", 6);
@@ -873,16 +873,32 @@
       name: "Dragon-Brand Knockoff", color: "#ff3b5c", baseHp: 1600, contact: 32, score: 2400, coins: 120, isBoss: true, severTail: true,
       banner: ["🐉 DRAGON-BRAND KNOCKOFF", "As seen on a cart. Breathes fire."],
       spawn(e) { const u = TD.Screen.unit; e.r = 40 * u; e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0;
+        e.moveT = M.rand(2.5, 4.5); e.dashing = false; e.dest = null;
         const N = 24; e.seg = [];
         for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3))) });
         e.parts = e.seg;   // body collides — its higher contact makes the dragon hit harder than the wyrm
         initChain(e, e.r * 0.42);   // lay the tail out behind the head
       },
       update(e, game, dt) {
-        const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
-        const ideal = 300 * u;
-        if (d.d > ideal) steer(e, approachAng(e, game.ship.x, game.ship.y), 60 * u, dt, 85 * u); else steer(e, d.ang + Math.PI, 50 * u, dt, 70 * u);
-        e.vx *= 0.97; e.vy *= 0.97; e.ang = M.angToward(e.ang, d.ang, 2.4 * dt);
+        const u = TD.Screen.unit, W = TD.Screen.W, H = TD.Screen.H, d = dToShip(e, game); e.t += dt;
+        // occasionally ZIP to a random waypoint (4 corners + center) so the long tail whips out
+        e.moveT -= dt;
+        if (!e.dashing && e.moveT <= 0) {
+          const m = e.r * 1.8;
+          const pts = [[m, m], [W - m, m], [m, H - m], [W - m, H - m], [W * 0.5, H * 0.5]];
+          const p = pts[M.randInt(0, pts.length - 1)];
+          e.dest = { x: p[0], y: p[1] }; e.dashing = true;
+        }
+        if (e.dashing) {
+          const dx = e.dest.x - e.x, dy = e.dest.y - e.y, dd = Math.hypot(dx, dy), da = Math.atan2(dy, dx);
+          steer(e, da, 650 * u, dt, 480 * u);                 // fast zip — the tail strings out behind
+          e.ang = M.angToward(e.ang, da, 4 * dt);
+          if (dd < 45 * u) { e.dashing = false; e.moveT = M.rand(3, 5.5); }
+        } else {
+          const ideal = 300 * u;
+          if (d.d > ideal) steer(e, approachAng(e, game.ship.x, game.ship.y), 60 * u, dt, 85 * u); else steer(e, d.ang + Math.PI, 50 * u, dt, 70 * u);
+          e.vx *= 0.97; e.vy *= 0.97; e.ang = M.angToward(e.ang, d.ang, 2.4 * dt);
+        }
         const hpF = e.hp / e.maxHp, ph = hpF < 0.35 ? 2 : hpF < 0.7 ? 1 : 0;
         // flame breath: a dense cone that sweeps across the player
         e.breath -= dt;
