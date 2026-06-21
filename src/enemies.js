@@ -268,10 +268,13 @@
         ctx.rotate(e.ang);
         poly(ctx, 8, e.r, 0);
         neon(ctx, e.charging > 0 ? "#ffd14d" : e.color, "rgba(255,157,43,.14)", 3.2);
-        // armored front arc — alarming BLUE shield (distinguishes it from the red Crusher)
+        // armored front arc — alarming BLUE neon shield (big glow + bright core)
+        ctx.lineCap = "round";
         ctx.beginPath(); ctx.arc(0, 0, e.r * 0.92, -0.8, 0.8);
-        ctx.lineWidth = 5; ctx.strokeStyle = "#cfe8ff"; ctx.shadowColor = "#2f9dff"; ctx.shadowBlur = 12; ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#7cc4ff"; ctx.shadowColor = "#3aa0ff"; ctx.lineWidth = 6;
+        ctx.shadowBlur = 30; ctx.stroke(); ctx.shadowBlur = 16; ctx.stroke();
+        ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2.4; ctx.stroke();
+        ctx.lineCap = "butt";
       },
     },
 
@@ -638,9 +641,12 @@
           const n = 18; for (let i = 0; i < n; i++) enemyShot(game, e.x, e.y, i / n * M.TAU, 150, 11, "#ff8a5a", 6);
           game.shake(7); game.addPop(e.x, e.y, e.r * 3, "#ff8a5a", { w: 4 }); } },
       draw(e, ctx) { ctx.rotate(e.ang); poly(ctx, 6, e.r, 0); neon(ctx, e.color, "rgba(255,90,60,.16)", 3.4);
-        // armored front arc — threatening RED shield (distinguishes it from the blue Mega-Pallet)
-        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.95, -0.9, 0.9); ctx.strokeStyle = "#ff6a6a"; ctx.lineWidth = 10;
-        ctx.shadowColor = "#ff1f1f"; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0; },
+        // armored front arc — threatening RED neon shield (big glow + bright core)
+        ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(0, 0, e.r * 0.95, -0.9, 0.9); ctx.strokeStyle = "#ff5a5a"; ctx.lineWidth = 10;
+        ctx.shadowColor = "#ff1020"; ctx.shadowBlur = 32; ctx.stroke(); ctx.shadowBlur = 18; ctx.stroke();
+        ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.lineWidth = 3.5; ctx.stroke();
+        ctx.lineCap = "butt"; },
     },
 
     /* 5 — Knockoff Hydra: periodically spits out swarms of mobs */
