@@ -350,9 +350,13 @@
         const u = TD.Screen.unit;
         e.r = 30 * u;
         e.ang = M.rand(0, M.TAU); e.t = 0; e.fire = 2; e.phase = 0; e.ring = 0; e.atkTimer = 2.4; e.minionT = 5;
-        const N = 16;
+        const N = 28;            // longer wyrm
         e.seg = [];
-        for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: (24 - i * 0.9) * u });
+        for (let i = 0; i < N; i++) {
+          // uniform thickness for most of the length, tapering only the last few segments
+          const taper = i < N - 7 ? 1 : Math.max(0.32, 1 - (i - (N - 7)) / 7 * 0.7);
+          e.seg.push({ x: e.x, y: e.y, r: 15 * u * taper });
+        }
         e.parts = e.seg;        // collision circles (used by game.hitEnemy)
         e.history = [];
       },
@@ -361,16 +365,16 @@
         const d = dToShip(e, game);
         e.t += dt;
         // chase the player, weave, and curl back toward centre near the edges
-        let desired = d.ang + Math.sin(e.t * 1.6) * 0.6;
+        let desired = d.ang + Math.sin(e.t * 2.2) * 0.95;   // pronounced head oscillation → sinusoidal body
         const m = 70 * u;
         if (e.x < m || e.x > W - m || e.y < m || e.y > H - m)
           desired = Math.atan2(H / 2 - e.y, W / 2 - e.x);
-        e.ang = M.angToward(e.ang, desired, 1.8 * dt);
-        const sp = 120 * u;
+        e.ang = M.angToward(e.ang, desired, 2.6 * dt);
+        const sp = 135 * u;
         e.vx = Math.cos(e.ang) * sp; e.vy = Math.sin(e.ang) * sp;
         // record head trail, lay segments along it
         e.history.unshift({ x: e.x, y: e.y });
-        const gap = 4, need = e.seg.length * gap + 2;
+        const gap = 5, need = e.seg.length * gap + 2;
         if (e.history.length > need) e.history.length = need;
         for (let i = 0; i < e.seg.length; i++) {
           const h = e.history[Math.min((i + 1) * gap, e.history.length - 1)];
@@ -823,7 +827,11 @@
     z_dragon: {
       name: "Dragon-Brand Knockoff", color: "#ff3b5c", baseHp: 1600, contact: 32, score: 2400, coins: 120, isBoss: true,
       banner: ["🐉 DRAGON-BRAND KNOCKOFF", "As seen on a cart. Breathes fire."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 40 * u; e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0; },
+      spawn(e) { const u = TD.Screen.unit; e.r = 40 * u; e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0;
+        const N = 24; e.seg = [];
+        for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3))) });
+        e.parts = e.seg;   // body collides — its higher contact makes the dragon hit harder than the wyrm
+      },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
         const ideal = 300 * u;
@@ -842,24 +850,22 @@
         if (e.zoneT <= 0) { e.zoneT = 2.6 - ph * 0.4; game.telegraphZone(game.ship.x + M.rand(-60, 60), game.ship.y + M.rand(-60, 60), 90 * u, 0.9, 16); }
         // phase-2 spiral
         if (ph >= 1) { e.spiralA += 0.4; if (Math.floor(e.t * 12) % 3 === 0) enemyShot(game, e.x, e.y, e.spiralA, 200, 10, "#ff7a9c", 5); }
+        // build the world-space segmented tail (visual + collision) trailing & swaying behind the head
+        { const step = e.r * 0.46; let px = e.x - Math.cos(e.ang) * e.r * 0.45, py = e.y - Math.sin(e.ang) * e.r * 0.45, a = e.ang + Math.PI;
+          for (let i = 0; i < e.seg.length; i++) { a += Math.sin(e.t * 3 + i * 0.6) * 0.2; px += Math.cos(a) * step; py += Math.sin(a) * step; e.seg[i].x = px; e.seg[i].y = py; } }
       },
       draw(e, ctx) {
-        ctx.rotate(e.ang);
-        // long, thin, segmented tail — more & smaller beads than the serpent (longer + thinner),
-        // curving and swaying behind the head.
+        // long, thin, segmented tail in WORLD frame (ctx translated to head, not yet rotated)
         ctx.shadowColor = e.color;
-        let px = -e.r * 0.45, py = 0, a = Math.PI;
-        const N = 24, step = e.r * 0.46;
-        for (let i = 0; i < N; i++) {
-          a += Math.sin(e.t * 3 + i * 0.6) * 0.2;
-          px += Math.cos(a) * step; py += Math.sin(a) * step;
-          const rr = Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3)));
-          ctx.beginPath(); ctx.arc(px, py, rr, 0, M.TAU);
+        for (let i = e.seg.length - 1; i >= 0; i--) {
+          const s = e.seg[i], x = s.x - e.x, y = s.y - e.y;
+          ctx.beginPath(); ctx.arc(x, y, s.r, 0, M.TAU);
           ctx.fillStyle = "rgba(255,59,92,.28)";
           ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.shadowBlur = 8;
           ctx.fill(); ctx.stroke();
         }
         ctx.shadowBlur = 0;
+        ctx.rotate(e.ang);
         poly(ctx, 7, e.r, 0); neon(ctx, e.color, "rgba(255,59,92,.16)", 3.4);
         // horns + whiskers
         for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(-e.r * 0.2, s * e.r * 0.5); ctx.lineTo(-e.r * 0.7, s * e.r); ctx.strokeStyle = "#ffd07a"; ctx.lineWidth = 3; ctx.stroke();
