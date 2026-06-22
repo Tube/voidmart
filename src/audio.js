@@ -254,7 +254,7 @@
     // smooth per-layer intensity targets for the current mood (drums, lead, boss-hats)
     _mTargets() {
       const m = this._mMode;
-      return m === "menu" ? { d: 0, l: 0, h: 0 } : m === "boss" ? { d: 1, l: 1, h: 1 } : { d: 1, l: 0.8, h: 0 };
+      return m === "menu" ? { d: 0, l: 0.5, h: 0 } : m === "boss" ? { d: 1, l: 1, h: 1 } : { d: 1, l: 0.8, h: 0 };
     },
     startMusic() {
       if (!this.ctx || !this.musicGain || this._mOn) return;
@@ -327,19 +327,20 @@
       const CH = this._CH[prog[Math.floor(bar / 2) % 4]];   // 2 bars per chord → spacious, atmospheric harmony
       const D = this._mIntD || 0, L = this._mIntL || 0, H = this._mIntH || 0;   // smooth layer intensities (0..1)
 
-      // atmospheric pad — only a brief filtered SWELL at each chord change (no long drones)
-      if (b16 === 0 && bar % 2 === 0) for (const m of CH.t) this._mt(t, m + 12, 1.1, "sawtooth", 0.02, { atk: 0.2, space: 0.5, lp: 1100 });
+      // NO sustained pad — the arpeggio carries the harmony (atmospheric, MoO-style)
 
       // rolling sub + plucky DnB bass on the root
       if (b16 === 0) this._mt(t, CH.root - 12, 1.35, "sine", 0.16, { lp: 190, atk: 0.02 });                       // deep sub
       if (b16 === 0 || b16 === 6 || b16 === 10) this._mt(t, CH.root, 0.15, "sawtooth", 0.09, { lp: 620, atk: 0.004 });   // rolling bass
 
-      // ARPEGGIO — the star: fast sixteenths, octave up, lush with space; direction alternates per phrase
+      // ARPEGGIO — carries the harmony: fast sixteenths, octave up, lush with space; direction alternates per phrase
       const len = CH.t.length;
       let idx;
       if (phrase % 2 === 0) idx = step % len;
       else { const c = 2 * len - 2, p = step % c; idx = p < len ? p : c - p; }   // up-down
-      this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.11, "square", 0.06, { space: 0.42 });
+      this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.11, "square", 0.06, { space: 0.5 });
+      // cascading octave shimmer on each beat → full harmony with no pad
+      if (b16 % 4 === 0) this._mt(t, CH.t[idx] + 24, 0.18, "triangle", 0.03, { space: 0.55 });
 
       // DnB two-step break — faded in/out by intensity D (no hard cuts)
       if (D > 0.02) {
