@@ -987,7 +987,8 @@
                 y: e.y + Math.sin(back) * e.r * 1.1 + Math.sin(perp) * lat * e.r,
                 vx: Math.cos(back) * sp + Math.cos(perp) * lat * 30 * u - e.vx * 0.04,
                 vy: Math.sin(back) * sp + Math.sin(perp) * lat * 30 * u - e.vy * 0.04,
-                life: lf, maxLife: lf, r: M.rand(3, 8) * u, color: "#ccab7e", kind: "dust",
+                life: lf, maxLife: lf, r: M.rand(4, 11) * u, kind: "dust",
+                color: M.pick(["#b46bff", "#ff6bd6", "#6bd0ff", "#8a7bff", "#ff8af0", "#7ce0ff"]),   // nebula gas hues
               });
             }
           }

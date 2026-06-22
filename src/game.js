@@ -1668,6 +1668,14 @@
         } else if (p.kind === "muzzle") {
           ctx.globalAlpha = a; ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 12;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.r * a, 0, M.TAU); ctx.fill();
+        } else if (p.kind === "dust") {
+          // glowing nebula gas — additive blend so overlaps bloom, soft halo billows out as it fades
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = a * 0.45;
+          ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 14 * S.unit;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1.1 + (1 - a) * 1.8), 0, M.TAU); ctx.fill();
+          ctx.restore();
         } else {
           ctx.globalAlpha = a; ctx.fillStyle = p.color;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.4 + a * 0.6), 0, M.TAU); ctx.fill();
