@@ -223,9 +223,11 @@
     },
 
     /* ============================================================
-       MUSIC — looping neon-synthwave bed, fully synthesized + scheduled.
-       Am–F–C–G over 4 bars at 112 BPM. Intensity auto-tracks game state:
-       menu = dreamy (no drums), play = full groove, boss = +driving lead/hats.
+       MUSIC — atmospheric DnB synthwave, fully synthesized + scheduled.
+       ~172 BPM two-step breaks, rolling sub, the arpeggio up front, and only
+       brief atmospheric pad swells (no long sustained synths). 8-bar phrases,
+       2 bars per chord (spacious harmony). Intensity auto-tracks game state:
+       menu = beatless ambient arp, play = full break, boss = busier hats + lead.
        ============================================================ */
     // chord library + rotating progressions/leads (all in A-minor so any lead fits any progression)
     _CH: {
@@ -281,12 +283,12 @@
       if (this.musicGain) this.musicGain.gain.setTargetAtTime(0.0001, this.now(), 0.4);
     },
     _mSchedule() {
-      const sp16 = (60 / 112) / 4;                                  // sixteenth-note grid
+      const sp16 = (60 / 172) / 4;                                  // DnB tempo, sixteenth-note grid
       if (this._mNextT < this.now() - 0.2) this._mNextT = this.now() + 0.05;   // resync after any tab throttle
       while (this._mNextT < this.now() + 0.12) {
         this._mStepVoices(this._mStep, this._mNextT);
         this._mNextT += sp16; this._mStep++;
-        if (this._mStep >= 64) { this._mStep = 0; this._mPhrase = (this._mPhrase + 1) % 1000; }   // advance the song
+        if (this._mStep >= 128) { this._mStep = 0; this._mPhrase = (this._mPhrase + 1) % 1000; }   // 8-bar phrase
       }
     },
     // pitched music voice (midi in), routed through the music submix
@@ -307,7 +309,7 @@
       osc.start(t); osc.stop(t + dur + 0.05);
     },
     // percussion (filtered noise burst) on the music submix
-    _mn(t, dur, filter, freq, gain, Q) {
+    _mn(t, dur, filter, freq, gain, Q, space) {
       const ctx = this.ctx;
       const src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
       const fl = ctx.createBiquadFilter(); fl.type = filter; fl.frequency.value = freq; if (Q) fl.Q.value = Q;
@@ -316,39 +318,44 @@
       g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       src.connect(fl); fl.connect(g); g.connect(this.musicGain);
+      if (space) { const s = ctx.createGain(); s.gain.value = space; g.connect(s); s.connect(this.spaceIn); }   // gated-verb tail
       src.start(t); src.stop(t + dur + 0.03);
     },
     _mStepVoices(step, t) {
-      const phrase = this._mPhrase || 0, bar = Math.floor(step / 16) % 4, b16 = step % 16;
+      const phrase = this._mPhrase || 0, bar = Math.floor(step / 16) % 8, b16 = step % 16;
       const prog = this._PROGS[phrase % this._PROGS.length];
-      const CH = this._CH[prog[bar]];
+      const CH = this._CH[prog[Math.floor(bar / 2) % 4]];   // 2 bars per chord → spacious, atmospheric harmony
       const D = this._mIntD || 0, L = this._mIntL || 0, H = this._mIntH || 0;   // smooth layer intensities (0..1)
-      const menuish = D < 0.5;   // bass plays sparser while drums are absent (menu)
-      // pad — soft sustained chord at the top of each bar (always)
-      if (b16 === 0) for (const m of CH.t) this._mt(t, m + 12, 1.9, "sawtooth", 0.035, { atk: 0.08, space: 0.35, lp: 1600 });
-      // bass — root pulse: quarters when calm, eighths once the groove is in
-      const bassEvery = menuish ? 4 : 2;
-      if (b16 % bassEvery === 0) this._mt(t, CH.root, menuish ? 0.5 : 0.22, "sawtooth", b16 % 4 === 0 ? 0.15 : 0.1, { lp: 700, atk: 0.006 });
-      // arp — sixteenths; direction alternates per phrase for variety
+
+      // atmospheric pad — only a brief filtered SWELL at each chord change (no long drones)
+      if (b16 === 0 && bar % 2 === 0) for (const m of CH.t) this._mt(t, m + 12, 1.1, "sawtooth", 0.02, { atk: 0.2, space: 0.5, lp: 1100 });
+
+      // rolling sub + plucky DnB bass on the root
+      if (b16 === 0) this._mt(t, CH.root - 12, 1.35, "sine", 0.16, { lp: 190, atk: 0.02 });                       // deep sub
+      if (b16 === 0 || b16 === 6 || b16 === 10) this._mt(t, CH.root, 0.15, "sawtooth", 0.09, { lp: 620, atk: 0.004 });   // rolling bass
+
+      // ARPEGGIO — the star: fast sixteenths, octave up, lush with space; direction alternates per phrase
       const len = CH.t.length;
       let idx;
       if (phrase % 2 === 0) idx = step % len;
       else { const c = 2 * len - 2, p = step % c; idx = p < len ? p : c - p; }   // up-down
-      this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.12, "square", 0.05, { space: 0.3 });
-      // drums — faded in/out by intensity D (no hard cuts)
+      this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.11, "square", 0.06, { space: 0.42 });
+
+      // DnB two-step break — faded in/out by intensity D (no hard cuts)
       if (D > 0.02) {
-        if (b16 % 4 === 0) this._mt(t, 47, 0.18, "sine", 0.26 * D, { to: 28, atk: 0.004 });               // kick
-        if (b16 === 4 || b16 === 12) { this._mn(t, 0.16, "bandpass", 1800, 0.14 * D, 1.2); this._mt(t, 52, 0.08, "triangle", 0.06 * D); } // snare
-        if (b16 % 2 === 0) this._mn(t, 0.03, "highpass", 8000, (b16 % 4 === 2 ? 0.06 : 0.035) * D);        // 8th hats
-        if (H > 0.05 && b16 % 2 === 1) this._mn(t, 0.025, "highpass", 8000, 0.03 * H * D);                  // boss 16th hats fade in
-        // drum fill on the last bar of every other phrase
-        if (phrase % 2 === 1 && bar === 3 && (b16 === 10 || b16 === 11 || b16 === 13 || b16 === 14 || b16 === 15))
-          this._mn(t, 0.07, "bandpass", 1700 + b16 * 30, 0.1 * D, 1.0);
+        if (b16 === 0 || b16 === 10) this._mt(t, 47, 0.16, "sine", 0.26 * D, { to: 28, atk: 0.004 });             // two-step kick
+        if (b16 === 4 || b16 === 12) { this._mn(t, 0.18, "bandpass", 1900, 0.15 * D, 1.1, 0.45); this._mt(t, 52, 0.07, "triangle", 0.05 * D); }   // snare + gated-verb tail
+        if (b16 === 7 || b16 === 15) this._mn(t, 0.05, "bandpass", 2100, 0.045 * D, 1.0);                          // ghost snares (breakbeat)
+        const hatStep = H > 0.5 ? 1 : 2;                                                                          // 16th hats in boss, else 8ths
+        if (b16 % hatStep === 0) this._mn(t, 0.024, "highpass", 9000, (b16 % 4 === 2 ? 0.05 : 0.03) * D);
+        // breakbeat fill across the last bar of every other phrase
+        if (phrase % 2 === 1 && bar === 7 && b16 >= 8) this._mn(t, 0.05, "bandpass", 1600 + b16 * 40, 0.08 * D, 1.0);
       }
-      // lead — catchy motif on the beats, faded by intensity L; brighter in boss
-      if (L > 0.05 && b16 % 4 === 0) {
-        const ld = this._LEADS[phrase % this._LEADS.length][bar * 4 + b16 / 4];
-        if (ld) this._mt(t, ld, 0.3, "triangle", (this._mMode === "boss" ? 0.11 : 0.085) * L, { space: 0.4, atk: 0.012 });
+
+      // lead — sparse, airy motif (every half-bar), faded by intensity L
+      if (L > 0.05 && b16 % 8 === 0) {
+        const ld = this._LEADS[phrase % this._LEADS.length][(bar % 4) * 4 + b16 / 4];
+        if (ld) this._mt(t, ld, 0.5, "triangle", (this._mMode === "boss" ? 0.09 : 0.07) * L, { space: 0.55, atk: 0.02 });
       }
     },
   };
