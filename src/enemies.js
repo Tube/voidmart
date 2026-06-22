@@ -987,7 +987,7 @@
                 y: e.y + Math.sin(back) * e.r * 1.1 + Math.sin(perp) * lat * e.r,
                 vx: Math.cos(back) * sp + Math.cos(perp) * lat * 30 * u - e.vx * 0.04,
                 vy: Math.sin(back) * sp + Math.sin(perp) * lat * 30 * u - e.vy * 0.04,
-                life: lf, maxLife: lf, r: M.rand(3, 8) * u, color: "#ccab7e", kind: "spark",
+                life: lf, maxLife: lf, r: M.rand(3, 8) * u, color: "#ccab7e", kind: "dust",
               });
             }
           }

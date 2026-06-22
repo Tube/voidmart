@@ -1181,12 +1181,23 @@
     },
 
     updateParticles(dt) {
+      const s = this.ship;
+      let dustHits = 0;   // how many dust motes the ship is sitting in this frame
       for (const p of this.particles) {
         p.life -= dt;
-        if (p.kind === "spark") {
+        if (p.kind === "spark" || p.kind === "dust") {
           p.x += p.vx * dt; p.y += p.vy * dt;
           p.vx *= Math.exp(-3 * dt); p.vy *= Math.exp(-3 * dt);
         }
+        if (p.kind === "dust" && s && s.hull > 0) {
+          const dx = p.x - s.x, dy = p.y - s.y, rr = p.r + s.r;
+          if (dx * dx + dy * dy < rr * rr) dustHits++;
+        }
+      }
+      // dust cloud bogs the ship down — light at the edge, near-stop in the thick of it (clears as it fades)
+      if (dustHits > 0) {
+        const k = Math.exp(-Math.min(dustHits, 6) * 1.7 * dt);
+        s.vx *= k; s.vy *= k;
       }
       this.particles = this.particles.filter((p) => p.life > 0);
     },
