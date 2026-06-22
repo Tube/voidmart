@@ -37,8 +37,11 @@
       TD.Input.attach(this.canvas);
       S.onResize = () => { this.makeStars(); if (this.ship) this.ship.r = 13 * S.unit; };
       this.makeStars();
-      // adaptive quality (device-persistent): scaled down on the fly if FPS drops
-      this.qual = 2; this.particleCap = 170; this.fxScale = 1; this.coinCap = 24; this._fpsAvg = 60; this._qualT = 0;
+      // adaptive quality: ratchets DOWN only, and starts at the lowest tier this device has hit before
+      this._fpsAvg = 60; this._qualT = 0;
+      let q0 = 2;
+      try { const v = localStorage.getItem("voidmart_qual"); if (v != null) q0 = M.clamp(parseInt(v, 10) || 0, 0, 2); } catch (_) {}
+      this._setQual(q0);
       this.last = performance.now();
       requestAnimationFrame((t) => this.loop(t));
     },
@@ -1393,18 +1396,19 @@
     // Step quality down when smoothed FPS sags, back up when it recovers (hysteresis + cooldown
     // so it doesn't flap). Quality scales particle caps, FX density, and coin-pile size.
     _adaptQuality(dt) {
+      if (this.qual <= 0) return;             // already at the floor — stays there
       this._qualT += dt;
       if (this._qualT < 2) return;            // re-evaluate ~every 2s
       this._qualT = 0;
-      const f = this._fpsAvg;
-      if (f < 43 && this.qual > 0) this._setQual(this.qual - 1);
-      else if (f > 56 && this.qual < 2) this._setQual(this.qual + 1);
+      // ratchet DOWN only: a device that struggles once will struggle again, so never raise back up
+      if (this._fpsAvg < 43) this._setQual(this.qual - 1);
     },
     _setQual(q) {
       this.qual = q;
       this.particleCap = [70, 120, 170][q];
       this.fxScale = [0.45, 0.75, 1][q];
       this.coinCap = [14, 18, 24][q];
+      try { localStorage.setItem("voidmart_qual", q); } catch (_) {}   // remember this device's tier for future games
     },
     loop(t) {
       const raw = (t - this.last) / 1000;
