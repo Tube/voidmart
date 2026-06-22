@@ -923,14 +923,15 @@
         followChain(e, e.r * 0.42, dt);
       },
       draw(e, ctx) {
-        // long, thin, segmented tail in WORLD frame (ctx translated to head, not yet rotated)
-        ctx.shadowColor = e.color;
+        // segmented tail in WORLD frame (ctx translated to head, not yet rotated) —
+        // each segment is a septagon with the same neon outline as the head, aligned to the spine
         for (let i = e.seg.length - 1; i >= 0; i--) {
           const s = e.seg[i], x = s.x - e.x, y = s.y - e.y;
-          ctx.beginPath(); ctx.arc(x, y, s.r, 0, M.TAU);
-          ctx.fillStyle = "rgba(255,59,92,.28)";
-          ctx.strokeStyle = e.color; ctx.lineWidth = 2; ctx.shadowBlur = 8;
-          ctx.fill(); ctx.stroke();
+          const prev = i === 0 ? e : e.seg[i - 1];
+          const ang = Math.atan2(prev.y - s.y, prev.x - s.x);
+          ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+          poly(ctx, 7, s.r, 0); neon(ctx, e.color, "rgba(255,59,92,.16)", 2);
+          ctx.restore();
         }
         ctx.shadowBlur = 0;
         ctx.rotate(e.ang);
