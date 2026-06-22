@@ -593,19 +593,27 @@
       total = Math.max(0, Math.round(total));
       if (!total) return;
       const u = S.unit, sps = spread || 150;
-      const push = (val, big) => {
+      const push = (val, tier, rad) => {
         const a = M.rand(0, M.TAU), sp = M.rand(40, sps) * u;
         this.coins.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-          r: (big ? 9 : 5) * u, value: val, big: !!big, life: big ? 20 : 13, t: M.rand(0, 6) });
+          r: rad * u, value: val, tier, big: tier >= 2, life: tier >= 2 ? 20 : 13, t: M.rand(0, 6) });
       };
-      let bigs = Math.floor(total / 10);
-      if (bigs > 30) bigs = 30;            // cap entity count on huge payouts
-      for (let i = 0; i < bigs; i++) push(10, true);
-      const rem = total - bigs * 10;
-      if (rem > 0) {                        // remainder as a few small coins
-        const n = Math.min(rem, 5), per = Math.max(1, Math.round(rem / n));
-        let left = rem;
-        for (let i = 0; i < n && left > 0; i++) { const v = Math.min(per, left); push(v, false); left -= v; }
+      const CAP = 24;   // hard ceiling on coin entities per drop (fewer objects = less lag)
+      // greedy denominations 25/10/5/1 → far fewer coins than before for the same value
+      let r = total;
+      const n25 = Math.floor(r / 25); r -= n25 * 25;
+      const n10 = Math.floor(r / 10); r -= n10 * 10;
+      const n5 = Math.floor(r / 5); r -= n5 * 5;
+      const n1 = r;
+      if (n25 + n10 + n5 + n1 <= CAP) {
+        for (let i = 0; i < n25; i++) push(25, 3, 11);
+        for (let i = 0; i < n10; i++) push(10, 2, 9);
+        for (let i = 0; i < n5; i++) push(5, 1, 6.5);
+        for (let i = 0; i < n1; i++) push(1, 0, 5);
+      } else {
+        // huge payout: bundle the value into CAP big coins so the count (and lag) stays bounded
+        let left = total, per = Math.round(total / CAP);
+        for (let i = 0; i < CAP; i++) { const v = i === CAP - 1 ? left : per; left -= v; if (v > 0) push(v, 3, 11); }
       }
     },
     healHull(amt) {
@@ -1681,23 +1689,28 @@
         this.eachWrap(c.x, c.y, c.r + 12, (x, y) => {
           ctx.save(); ctx.translate(x, y); ctx.globalAlpha = blink;
           ctx.rotate(Math.sin(c.t * 3) * 0.5);
-          if (c.big) {
-            // chunky "10×" coin: double rim, brighter glow, sparkle
+          const tier = c.tier || 0;
+          if (tier >= 2) {
+            // chunky coin (10 & 25): double rim + sparkle. 25 is bigger, warmer, and gets an 8-point sparkle
+            const warm = tier === 3;
             ctx.beginPath(); ctx.arc(0, 0, c.r, 0, M.TAU);
-            ctx.fillStyle = "#ffcf2e"; ctx.shadowColor = "#ffb300"; ctx.shadowBlur = 16; ctx.fill();
+            ctx.fillStyle = warm ? "#ffdf4d" : "#ffcf2e"; ctx.shadowColor = warm ? "#ff9500" : "#ffb300"; ctx.shadowBlur = 16; ctx.fill();
             ctx.strokeStyle = "#fff6cf"; ctx.lineWidth = 2.4; ctx.stroke();
             ctx.beginPath(); ctx.arc(0, 0, c.r * 0.62, 0, M.TAU);
-            ctx.strokeStyle = "#c98a00"; ctx.lineWidth = 1.6; ctx.stroke();
+            ctx.strokeStyle = warm ? "#b96a00" : "#c98a00"; ctx.lineWidth = 1.6; ctx.stroke();
             ctx.shadowBlur = 0;
-            // 4-point sparkle
             ctx.strokeStyle = "#fffbe6"; ctx.lineWidth = 2;
             const sp = c.r * 0.5 * (0.85 + 0.15 * Math.sin(c.t * 6));
-            ctx.beginPath(); ctx.moveTo(-sp, 0); ctx.lineTo(sp, 0); ctx.moveTo(0, -sp); ctx.lineTo(0, sp); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-sp, 0); ctx.lineTo(sp, 0); ctx.moveTo(0, -sp); ctx.lineTo(0, sp);
+            if (warm) { const d = sp * 0.7; ctx.moveTo(-d, -d); ctx.lineTo(d, d); ctx.moveTo(-d, d); ctx.lineTo(d, -d); }
+            ctx.stroke();
           } else {
+            // simple coin (1 & 5); the 5 is a touch larger (paler gold) with a center pip
             ctx.beginPath(); ctx.arc(0, 0, c.r, 0, M.TAU);
-            ctx.fillStyle = "#ffd23b"; ctx.shadowColor = "#ffb300"; ctx.shadowBlur = 10; ctx.fill();
+            ctx.fillStyle = tier === 1 ? "#ffe27a" : "#ffd23b"; ctx.shadowColor = "#ffb300"; ctx.shadowBlur = 10; ctx.fill();
             ctx.strokeStyle = "#fff3c4"; ctx.lineWidth = 1.4; ctx.stroke();
             ctx.shadowBlur = 0;
+            if (tier === 1) { ctx.beginPath(); ctx.arc(0, 0, c.r * 0.34, 0, M.TAU); ctx.strokeStyle = "#c98a00"; ctx.lineWidth = 1.2; ctx.stroke(); }
           }
           ctx.globalAlpha = 1; ctx.restore();
         });
