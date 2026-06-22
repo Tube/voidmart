@@ -98,6 +98,7 @@
             ? "Choose from premium hulls — or fly the free Store Brand below."
             : "Every chassis flies differently. Spin to claim one.",
           locked,
+          welcome: true,
         });
         return;
       }

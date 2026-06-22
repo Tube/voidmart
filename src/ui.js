@@ -24,7 +24,7 @@
         toasts: $("toasts"), receipt: $("receipt"),
         wheelScreen: $("wheelScreen"), wheelTrack: $("wheelTrack"),
         spinBtn: $("spinBtn"), wheelKicker: $("wheelKicker"), wheelSkipBtn: $("wheelSkipBtn"),
-        wheelTitle: $("wheelTitle"), wheelSub: $("wheelSub"),
+        wheelTitle: $("wheelTitle"), wheelSub: $("wheelSub"), wheelHyper: $("wheelHyper"),
         overReason: $("overReason"), overTip: $("overTip"),
       };
     },
@@ -200,6 +200,8 @@
     openWheel(g, prizes, kicker, opts) {
       opts = opts || {};
       this._wheel = { g, prizes, winner: null, spinning: false, done: false, locked: !!opts.locked, select: !!opts.select };
+      this.el.wheelScreen.classList.toggle("welcome", !!opts.welcome);
+      this.stopHyper();
       this.el.hud.classList.add("hidden");
       this.el.pauseBtn.classList.add("hidden");
       this.el.muteBtn.classList.add("hidden");
@@ -252,6 +254,52 @@
         if (skip) skip.classList.add("hidden");
       }
       this.show("wheelScreen");
+      if (opts.welcome) this.startHyper();
+    },
+    // Star Wars-style hyperspace warp behind the welcome wheel. Radial light streaks
+    // accelerating out from the centre; runs only while the welcome wheel is open.
+    startHyper() {
+      const cv = this.el.wheelHyper;
+      if (!cv || this._hyperOn) return;
+      const ctx = cv.getContext("2d");
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const N = 220, stars = [];
+      for (let i = 0; i < N; i++) stars.push({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random() * 0.9 + 0.1 });
+      const resize = () => {
+        const r = cv.getBoundingClientRect();
+        cv.width = Math.max(1, Math.round(r.width * dpr));
+        cv.height = Math.max(1, Math.round(r.height * dpr));
+      };
+      resize();
+      let last = 0;
+      const step = (t) => {
+        if (!this._hyperOn) return;
+        const w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
+        const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t;
+        ctx.fillStyle = "rgba(5,6,18,0.30)"; ctx.fillRect(0, 0, w, h);   // motion-blur trail
+        const k = Math.max(w, h) * 0.9, speed = 1.5;
+        for (const s of stars) {
+          s.z -= speed * dt;
+          if (s.z <= 0.04) { s.x = Math.random() * 2 - 1; s.y = Math.random() * 2 - 1; s.z = 1; continue; }
+          const ztail = Math.min(1, s.z + 0.14);
+          const x1 = cx + (s.x / s.z) * k, y1 = cy + (s.y / s.z) * k;       // streak head (out near edge)
+          const x2 = cx + (s.x / ztail) * k, y2 = cy + (s.y / ztail) * k;   // streak tail (toward centre)
+          const a = Math.min(1, (1 - s.z) * 1.3);
+          ctx.strokeStyle = "rgba(200,224,255," + a.toFixed(3) + ")";
+          ctx.lineWidth = Math.max(0.6, (1 - s.z) * 2.6) * dpr;
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+        this._hyperRaf = requestAnimationFrame(step);
+      };
+      this._hyperOn = true;
+      this._hyperResize = resize;
+      window.addEventListener("resize", resize);
+      this._hyperRaf = requestAnimationFrame(step);
+    },
+    stopHyper() {
+      this._hyperOn = false;
+      if (this._hyperRaf) { cancelAnimationFrame(this._hyperRaf); this._hyperRaf = 0; }
+      if (this._hyperResize) { window.removeEventListener("resize", this._hyperResize); this._hyperResize = null; }
     },
     // routed from the spin button: unlock (locked) / claim (done) / spin
     onSpin() {
@@ -287,6 +335,7 @@
       if (!w || !w.select || w.done) return;
       w.done = true;
       const winner = w.prizes[i];
+      this.stopHyper();
       this.el.wheelScreen.classList.add("hidden");
       this._wheel = null;
       w.g.awardPrize(winner);
@@ -296,6 +345,7 @@
       const w = this._wheel;
       if (!w) return;
       const g = w.g;
+      this.stopHyper();
       this.el.wheelScreen.classList.add("hidden");
       if (this.el.wheelSkipBtn) this.el.wheelSkipBtn.classList.add("hidden");
       this._wheel = null;
@@ -344,6 +394,7 @@
       const w = this._wheel;
       if (!w || !w.done || !w.winner) return;
       const winner = w.winner;
+      this.stopHyper();
       this.el.wheelScreen.classList.add("hidden");
       this._wheel = null;
       w.g.awardPrize(winner);
