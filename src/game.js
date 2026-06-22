@@ -732,6 +732,8 @@
       if (this.state === "over") return;
       this.ship.hull = 0;            // HP is gone — make it explicit
       this.state = "over";
+      // evaluate local achievements for this run (stored on-device only, no tracking)
+      this._newAch = TD.Achievements ? TD.Achievements.evaluateGameOver(this) : [];
       // force one last HUD refresh so the hull bar reads 0 during the explosion
       // (updateHUD otherwise only runs in play/paused, leaving the bar frozen mid-full)
       TD.UI.updateHUD(this);

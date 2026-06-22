@@ -428,8 +428,20 @@
         row("Premium Sellers refunded", "⭐ " + g.bossesBeaten) +
         row("Loadout", weapon) +
         row("Coins hoarded", fmt(g.coinTotal) + " 🪙") +
-        '<div class="r-row r-tot"><b>TOTAL SAVINGS</b><b>' + fmt(g.score) + '</b></div>';
+        '<div class="r-row r-tot"><b>TOTAL SAVINGS</b><b>' + fmt(g.score) + '</b></div>' +
+        achBlock(g._newAch);
       this.show("overScreen");
+      function achBlock(list) {
+        if (!list || !list.length) return "";
+        const rows = list.map((d) =>
+          '<div style="display:flex;gap:9px;align-items:center;margin:5px 0;text-align:left">' +
+          '<span style="font-size:22px;flex:none">' + d.icon + '</span>' +
+          '<span><b style="color:var(--ink)">' + d.name + '</b><br>' +
+          '<span style="font-size:11px;color:#6a6080">' + d.desc + '</span></span></div>').join("");
+        return '<div style="margin-top:12px;border-top:2px dashed #d9d2ee;padding-top:9px">' +
+          '<div style="font-family:Orbitron,\'Baloo 2\',sans-serif;font-weight:800;color:#ff7a2b;font-size:12px;letter-spacing:.06em;margin-bottom:4px">🏆 NEW ACHIEVEMENT' + (list.length > 1 ? "S" : "") + '</div>' +
+          rows + '</div>';
+      }
       function row(a, b) { return '<div class="r-row"><span>' + a + '</span><b>' + b + '</b></div>'; }
     },
   };

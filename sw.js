@@ -3,7 +3,7 @@
    first online launch), then stale-while-revalidate at runtime — serve the local
    copy instantly and refresh it in the background while online, so the most recent
    grab is always stored locally and the game launches with no network. */
-const CACHE = "voidmart-v85";
+const CACHE = "voidmart-v86";
 const ASSETS = [
   "./",
   "./index.html",
@@ -18,6 +18,7 @@ const ASSETS = [
   "./src/upgrades.js",
   "./src/prizes.js",
   "./src/bodies.js",
+  "./src/achievements.js",
   "./src/game.js",
   "./src/ui.js",
   "./src/main.js",
