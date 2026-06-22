@@ -96,7 +96,7 @@
           return P({ x: px, y: py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
               r: 3.6 * u, dmg: dmgOf(s, 6, crit), life: t2 ? 0.55 : 0.42, maxLife: t2 ? 0.55 : 0.42,
               pierce: s.stats.pierce + (t2 ? 1 : 0), hits: new Set(), color: t2 ? "#ffe27a" : "#ffd14d", glow: 9,
-              crit, splash: s.stats.splash });
+              crit, homing: s.stats.homing, splash: s.stats.splash });
         });
       },
     },
@@ -111,7 +111,7 @@
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, angle: a,
               r: 3 * u, dmg: dmgOf(s, 6, crit), life: 1.0, maxLife: 1.0,
               pierce: (t2 ? 2 : 1) + s.stats.pierce, hits: new Set(), color: t2 ? "#ff8af0" : "#ff5edb", glow: t2 ? 16 : 14,
-              kind: "beam", crit, splash: s.stats.splash }));
+              kind: "beam", crit, homing: s.stats.homing, splash: s.stats.splash }));
       },
     },
     /* Knock-off Railgun — charged piercing slug */
@@ -132,7 +132,7 @@
           game.projectiles.push(P({ x: px, y: py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, angle: a,
             r: (t2 ? 8.5 : 7) * u, dmg: dmgOf(s, t2 ? 82 : 58, crit), life: 1.4, maxLife: 1.4,
             pierce: (t2 ? 7 : 4) + s.stats.pierce, hits: new Set(), color: t2 ? "#b18cff" : "#9d6bff", glow: t2 ? 26 : 22,
-            kind: "slug", crit, splash: s.stats.splash }));
+            kind: "slug", crit, homing: s.stats.homing, turnRate: 3, splash: s.stats.splash }));
         }
         game.flashMuzzle(px, py, s.angle, "#9d6bff", 1.8 + n * 0.2);
         game.shake(4);
