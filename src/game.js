@@ -37,6 +37,8 @@
       TD.Input.attach(this.canvas);
       S.onResize = () => { this.makeStars(); if (this.ship) this.ship.r = 13 * S.unit; };
       this.makeStars();
+      // adaptive quality (device-persistent): scaled down on the fly if FPS drops
+      this.qual = 2; this.particleCap = 170; this.fxScale = 1; this.coinCap = 24; this._fpsAvg = 60; this._qualT = 0;
       this.last = performance.now();
       requestAnimationFrame((t) => this.loop(t));
     },
@@ -291,7 +293,7 @@
     },
     burnTrail(L, dt) {
       const s = this.ship;
-      if (this.particles.length < 170 && Math.random() < 0.5) this.particles.push({ x: s.x - Math.cos(s.angle) * s.r, y: s.y - Math.sin(s.angle) * s.r,
+      if (this.particles.length < this.particleCap && Math.random() < 0.5 * this.fxScale) this.particles.push({ x: s.x - Math.cos(s.angle) * s.r, y: s.y - Math.sin(s.angle) * s.r,
         vx: -s.vx * 0.1, vy: -s.vy * 0.1, life: 0.3, maxLife: 0.3, r: M.rand(2, 4) * S.unit,
         color: "#5b8cff", kind: "spark" });
       s.trailT -= dt;
@@ -586,6 +588,7 @@
       }
     },
     dropPickup(x, y) {
+      if (this.pickups.length >= 4) return;   // cap on-screen samples; new ones wait for old to clear/expire
       this.pickups.push({ x, y, r: 11 * S.unit, life: 12, t: 0, kind: "heal" });
     },
     // spawn `total` coin-value as a mix of big (×10) and small (×1) coins
@@ -598,7 +601,7 @@
         this.coins.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
           r: rad * u, value: val, tier, big: tier >= 2, life: tier >= 2 ? 20 : 13, t: M.rand(0, 6) });
       };
-      const CAP = 24;   // hard ceiling on coin entities per drop (fewer objects = less lag)
+      const CAP = this.coinCap || 24;   // hard ceiling on coin entities per drop (lowers itself on slow devices)
       // greedy denominations 25/10/5/1 → far fewer coins than before for the same value
       let r = total;
       const n25 = Math.floor(r / 25); r -= n25 * 25;
@@ -901,7 +904,8 @@
     },
     spark(x, y, color, n, scale) {
       scale = scale || 1;
-      if (this.particles.length > 170) n = Math.min(n, 2);
+      n = Math.max(1, Math.round(n * this.fxScale));
+      if (this.particles.length > this.particleCap) n = Math.min(n, 2);
       for (let i = 0; i < n; i++) {
         const a = M.rand(0, M.TAU), sp = M.rand(40, 180) * S.unit * scale;
         this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
@@ -910,7 +914,8 @@
     },
     explode(x, y, color, r) {
       let n = Math.min(5 + (r * 0.35 | 0), 14);
-      if (this.particles.length > 170) n = Math.min(n, 5);
+      n = Math.max(2, Math.round(n * this.fxScale));
+      if (this.particles.length > this.particleCap) n = Math.min(n, 5);
       for (let i = 0; i < n; i++) {
         const a = M.rand(0, M.TAU), sp = M.rand(50, 260) * S.unit;
         this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
@@ -975,7 +980,7 @@
           s.vx += Math.cos(s.angle) * f * dt;
           s.vy += Math.sin(s.angle) * f * dt;
           s.flame = Math.min(1, s.flame + dt * 6);
-          if (Math.random() < 0.3) this.thrustParticle();
+          if (Math.random() < 0.3 * this.fxScale) this.thrustParticle();
           if (tdL > 0) this.burnTrail(tdL, dt);
         } else s.flame = Math.max(0, s.flame - dt * 6);
       } else s.flame = Math.max(0, s.flame - dt * 6);
@@ -1038,7 +1043,7 @@
     },
     thrustParticle() {
       const s = this.ship;
-      if (this.particles.length > 170) return;
+      if (this.particles.length > this.particleCap) return;
       const a = s.angle + Math.PI + M.rand(-0.3, 0.3);
       const px = s.x + Math.cos(s.angle + Math.PI) * s.r;
       const py = s.y + Math.sin(s.angle + Math.PI) * s.r;
@@ -1164,7 +1169,7 @@
             const a = Math.atan2(p.vy, p.vx);
             p.vx += Math.cos(a) * p.accel * dt; p.vy += Math.sin(a) * p.accel * dt;
           }
-          if (Math.random() < 0.3 && this.particles.length < 170) this.particles.push({ x: p.x, y: p.y, vx: -p.vx * 0.1, vy: -p.vy * 0.1,
+          if (Math.random() < 0.3 * this.fxScale && this.particles.length < this.particleCap) this.particles.push({ x: p.x, y: p.y, vx: -p.vx * 0.1, vy: -p.vy * 0.1,
             life: 0.25, maxLife: 0.25, r: 2 * S.unit, color: "#ffb15a", kind: "spark" });
         }
         p.x += p.vx * dt; p.y += p.vy * dt;
@@ -1383,10 +1388,28 @@
       }
     },
 
+    // Step quality down when smoothed FPS sags, back up when it recovers (hysteresis + cooldown
+    // so it doesn't flap). Quality scales particle caps, FX density, and coin-pile size.
+    _adaptQuality(dt) {
+      this._qualT += dt;
+      if (this._qualT < 2) return;            // re-evaluate ~every 2s
+      this._qualT = 0;
+      const f = this._fpsAvg;
+      if (f < 43 && this.qual > 0) this._setQual(this.qual - 1);
+      else if (f > 56 && this.qual < 2) this._setQual(this.qual + 1);
+    },
+    _setQual(q) {
+      this.qual = q;
+      this.particleCap = [70, 120, 170][q];
+      this.fxScale = [0.45, 0.75, 1][q];
+      this.coinCap = [14, 18, 24][q];
+    },
     loop(t) {
-      let dt = (t - this.last) / 1000;
+      const raw = (t - this.last) / 1000;
       this.last = t;
-      if (dt > 0.05) dt = 0.05; // clamp big gaps
+      let dt = raw > 0.05 ? 0.05 : raw; // clamp big gaps
+      // adaptive quality: smooth the FPS and step quality down/up to keep slow devices playable
+      if (raw > 0.0008 && raw < 0.5) { this._fpsAvg = this._fpsAvg * 0.92 + (1 / raw) * 0.08; this._adaptQuality(dt); }
       let sim = dt;
       if (this.hitStop > 0) { this.hitStop -= dt; sim = dt * 0.05; } // freeze-frame juice
       if (this.state === "play") this.update(sim);
@@ -1719,8 +1742,9 @@
     renderPickups(ctx) {
       for (const p of this.pickups) {
         const pulse = 1 + Math.sin(p.t * 5) * 0.12;
+        const blink = p.life < 3 ? (Math.sin(p.life * 12) > -0.3 ? 1 : 0.25) : 1;   // warn before it expires
         this.eachWrap(p.x, p.y, p.r + 14, (x, y) => {
-          ctx.save(); ctx.translate(x, y); ctx.scale(pulse, pulse);
+          ctx.save(); ctx.translate(x, y); ctx.scale(pulse, pulse); ctx.globalAlpha = blink;
           ctx.beginPath(); ctx.arc(0, 0, p.r, 0, M.TAU);
           ctx.fillStyle = "rgba(25,195,125,.2)"; ctx.strokeStyle = "#19c37d"; ctx.lineWidth = 2.4;
           ctx.shadowColor = "#19c37d"; ctx.shadowBlur = 12; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
