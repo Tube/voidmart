@@ -1040,34 +1040,55 @@
 
     updateDrones(dt) {
       const s = this.ship, n = s.drones.length;
+      if (!n) return;
       const wpnMode = !!(s.chassis && s.chassis.droneWeapon);   // drones fire the ship's primary weapon
       s.droneSpin = (s.droneSpin || 0) + 1.6 * dt;
       if (this._droneSfxT > 0) this._droneSfxT -= dt;
+      // position all drones evenly around the player
       for (let i = 0; i < n; i++) {
         const d = s.drones[i];
-        d.ang = s.droneSpin + (i / n) * M.TAU;   // evenly spaced around the player, whatever the count
+        d.ang = s.droneSpin + (i / n) * M.TAU;
         d.x = s.x + Math.cos(d.ang) * d.dist * S.unit;
         d.y = s.y + Math.sin(d.ang) * d.dist * S.unit;
-        d.fireCD -= dt;
-        if (d.fireCD <= 0) {
-          const t = TD.weaponNearest(this, d.x, d.y, (wpnMode ? 360 : 320) * S.unit);
-          if (t) {
-            const a = Math.atan2(t.y - d.y, t.x - d.x);
-            d.face = a;   // point the drone the way it fires
-            if (wpnMode) {
-              const w = TD.WEAPONS[s.stats.weapon];
+      }
+      if (wpnMode) {
+        // ONE drone fires per evenly-spaced interval, round-robin — so shots never overlap and the
+        // cadence is steady. Total output = per-drone rate × drone count (unchanged by the staggering).
+        const w = TD.WEAPONS[s.stats.weapon];
+        const rate = Math.max(0.1, w.rate * s.stats.fireRate * (s.fireMul || 1) * (s.chassis.droneRate || 1));
+        const interval = 1 / (rate * n);
+        s.droneFireT = (s.droneFireT || 0) - dt;
+        if (s.droneFireT <= 0) {
+          for (let k = 0; k < n; k++) {                 // try drones in rotation; fire the first with a target
+            const di = (s.droneNext || 0) % n; s.droneNext = di + 1;
+            const d = s.drones[di];
+            const t = TD.weaponNearest(this, d.x, d.y, 360 * S.unit);
+            if (t) {
+              const a = Math.atan2(t.y - d.y, t.x - d.x); d.face = a;
               w.fire(this, { x: d.x, y: d.y, angle: a, r: s.r, stats: s.stats,
                 weaponTier: s.weaponTier || 0, damageMul: s.damageMul || 1, vx: 0, vy: 0 });
               if (this._droneSfxT <= 0) { TD.Audio.shoot(s.stats.weapon); this._droneSfxT = 0.06; }
-              d.fireCD = 1 / Math.max(0.1, w.rate * s.stats.fireRate * (s.fireMul || 1) * (s.chassis.droneRate || 1));
-            } else {
+              break;
+            }
+          }
+          s.droneFireT = interval;
+        }
+      } else {
+        // other ships' drones: independent bolt timers
+        for (let i = 0; i < n; i++) {
+          const d = s.drones[i];
+          d.fireCD -= dt;
+          if (d.fireCD <= 0) {
+            const t = TD.weaponNearest(this, d.x, d.y, 320 * S.unit);
+            if (t) {
+              const a = Math.atan2(t.y - d.y, t.x - d.x); d.face = a;
               const crit = M.chance(s.stats.critChance);
               this.projectiles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 700 * S.unit, vy: Math.sin(a) * 700 * S.unit,
                 r: 3.4 * S.unit, dmg: (7 * s.stats.damage * (s.damageMul || 1)) * (crit ? s.stats.critMult : 1), life: 0.9, maxLife: 0.9,
                 pierce: 0, hits: new Set(), color: "#9bffe0", glow: 9, crit, kind: "bolt", homing: 0, splash: 0 });
               d.fireCD = 0.5;
-            }
-          } else d.fireCD = wpnMode ? 0.12 : 0.15;
+            } else d.fireCD = 0.15;
+          }
         }
       }
     },
