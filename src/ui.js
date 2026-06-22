@@ -224,9 +224,13 @@
         if (opts.select) {
           row.classList.add("selectable");
           row.addEventListener("click", () => { if (TD.Audio) TD.Audio.ui(); this.chooseWheel(i); });
+        } else {
+          // hidden charm: tap one ship exactly 7× (and none after) and the spin lands on it
+          row.addEventListener("click", () => { this._tap = { i, n: (this._tap && this._tap.i === i ? this._tap.n + 1 : 1) }; });
         }
         tr.appendChild(row);
       });
+      this._tap = null;   // reset the tap-charm each time the wheel opens
       const b = this.el.spinBtn;
       const skip = this.el.wheelSkipBtn;
       b.disabled = false;
@@ -358,7 +362,9 @@
       this.el.spinBtn.disabled = true;
       const rows = [...this.el.wheelTrack.children];
       const n = rows.length;
-      const winIdx = (Math.random() * n) | 0;
+      // hidden charm: a ship tapped exactly 7× (with no other ship tapped after) is destiny
+      const charm = this._tap && this._tap.n === 7 && this._tap.i < n;
+      const winIdx = charm ? this._tap.i : (Math.random() * n) | 0;
       // land so the final lit row == winIdx after ~7 full passes
       const total = winIdx + 1 + n * (6 + ((Math.random() * 3) | 0));
       let tick = 0;
