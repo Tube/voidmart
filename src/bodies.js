@@ -124,8 +124,8 @@
     },
     {
       id: "cannon", name: "Siege Platform", icon: "💥", seg: "#c79bff", color: "#c79bff",
-      desc: "+30% gun damage, +3 projectiles. Turret platform: moves 40% slower and drifts to a stop, but spins to aim 25% faster. −10% fire rate.",
-      apply(st) { st.thrust *= 0.6; st.moveSpeed *= 0.6; st.turn *= 1.25; st.brakeDrag = -0.3; st.fireRate *= 0.9; st.damage *= 1.3; st.projAdd += 3; },
+      desc: "+50% gun damage, +3 projectiles. Turret platform: moves 40% slower and drifts to a stop, but spins to aim 25% faster. Heavy cannon: −60% fire rate.",
+      apply(st) { st.thrust *= 0.6; st.moveSpeed *= 0.6; st.turn *= 1.25; st.brakeDrag = -0.3; st.fireRate *= 0.4; st.damage *= 1.5; st.projAdd += 3; },
       upgrade(st) { st.damage *= 1.3; st.projAdd += 3; },   // Mk2: upside only (no extra thrust/turn/fire-rate penalty)
       draw(ctx, r, inv, up) {
         // heavy body
