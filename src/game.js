@@ -1410,6 +1410,7 @@
       const raw = (t - this.last) / 1000;
       this.last = t;
       let dt = raw > 0.05 ? 0.05 : raw; // clamp big gaps
+      if (TD.Audio && TD.Audio.resume) TD.Audio.resume();   // watchdog: revive audio if the OS suspended it under load
       // adaptive quality: smooth the FPS and step quality down/up to keep slow devices playable
       if (raw > 0.0008 && raw < 0.5) { this._fpsAvg = this._fpsAvg * 0.92 + (1 / raw) * 0.08; this._adaptQuality(dt); }
       let sim = dt;

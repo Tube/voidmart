@@ -17,6 +17,9 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       const ctx = (this.ctx = new AC());
+      // self-heal: if the OS suspends/interrupts the context (common on slow devices under load),
+      // try to bring it straight back so audio doesn't die for the rest of the run
+      ctx.onstatechange = () => { if (ctx.state !== "running" && ctx.state !== "closed") { try { ctx.resume(); } catch (_) {} } };
 
       // master bus -> soft compressor -> out
       const master = (this.master = ctx.createGain());
@@ -63,7 +66,7 @@
       this.ready = true;
       this.resume();
     },
-    resume() { if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); },
+    resume() { if (this.ctx && this.ctx.state !== "running" && this.ctx.state !== "closed") { try { this.ctx.resume(); } catch (_) {} } },
     setEnabled(on) {
       this.enabled = on;
       if (this.master) this.master.gain.value = on ? 0.85 : 0;
@@ -362,6 +365,7 @@
       const prog = this._PROGS[this._mProgIdx || 0];
       const CH = this._CH[prog[Math.floor(bar / 2) % 4]];   // 2 bars per chord → spacious, atmospheric harmony
       const D = this._mIntD || 0, L = this._mIntL || 0, H = this._mIntH || 0;   // smooth layer intensities (0..1)
+      const lowFx = TD.Game && TD.Game.qual === 0;   // weakest devices: drop the densest voices to ease the audio thread
 
       // NO sustained pad — the arpeggio carries the harmony (atmospheric, MoO-style)
 
@@ -376,14 +380,14 @@
       else { const c = 2 * len - 2, p = step % c; idx = p < len ? p : c - p; }   // up-down
       this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.11, "square", 0.06, { space: 0.5 });
       // cascading octave shimmer on each beat → full harmony with no pad
-      if (b16 % 4 === 0) this._mt(t, CH.t[idx] + 24, 0.18, "triangle", 0.03, { space: 0.55 });
+      if (!lowFx && b16 % 4 === 0) this._mt(t, CH.t[idx] + 24, 0.18, "triangle", 0.03, { space: 0.55 });
 
       // DnB two-step break — faded in/out by intensity D (no hard cuts)
       if (D > 0.02) {
         if (b16 === 0 || b16 === 10) this._mt(t, 47, 0.16, "sine", 0.26 * D, { to: 28, atk: 0.004 });             // two-step kick
         if (b16 === 4 || b16 === 12) { this._mn(t, 0.18, "bandpass", 1900, 0.15 * D, 1.1, 0.45); this._mt(t, 52, 0.07, "triangle", 0.05 * D); }   // snare + gated-verb tail
-        if (b16 === 7 || b16 === 15) this._mn(t, 0.05, "bandpass", 2100, 0.045 * D, 1.0);                          // ghost snares (breakbeat)
-        const hatStep = H > 0.5 ? 1 : 2;                                                                          // 16th hats in boss, else 8ths
+        if (!lowFx && (b16 === 7 || b16 === 15)) this._mn(t, 0.05, "bandpass", 2100, 0.045 * D, 1.0);             // ghost snares (breakbeat)
+        const hatStep = (H > 0.5 && !lowFx) ? 1 : 2;                                                              // 16th hats in boss, else 8ths
         if (b16 % hatStep === 0) this._mn(t, 0.024, "highpass", 9000, (b16 % 4 === 2 ? 0.05 : 0.03) * D);
         // breakbeat fill across the last bar of every other phrase
         if (phrase % 2 === 1 && bar === 7 && b16 >= 8) this._mn(t, 0.05, "bandpass", 1600 + b16 * 40, 0.08 * D, 1.0);
@@ -402,7 +406,7 @@
         if (b16 % 4 !== 1) this._mgtr(t, CH.root, 0.09, 0.07 * H, { lp: 1500, drive: 6, atk: 0.003 });
         // guitar solo: a different lick each bar; notes that ring out get a string bend
         const lick = this._SOLO[(phrase + bar) % this._SOLO.length], note = lick[b16];
-        if (note != null) {
+        if (note != null && !(lowFx && b16 % 2 === 1)) {   // weak devices: halve the solo's note density
           const held = lick[(b16 + 1) % 16] == null;
           this._mgtr(t, note, held ? 0.34 : 0.12, 0.075 * H, { lp: 3600, space: 0.3, atk: 0.004, to: held ? note + 2 : null });
         }
