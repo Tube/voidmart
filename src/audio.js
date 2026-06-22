@@ -40,6 +40,11 @@
       const musicGain = (this.musicGain = ctx.createGain()); musicGain.gain.value = 0.0001;
       musicGain.connect(master);
 
+      // distortion curve for the heavy-metal guitar + bass (waveshaper) — only used during boss fights
+      const dc = new Float32Array(1024), kk = 120, deg = Math.PI / 180;
+      for (let i = 0; i < 1024; i++) { const x = i * 2 / 1024 - 1; dc[i] = (3 + kk) * x * 20 * deg / (Math.PI + kk * Math.abs(x)); }
+      this._distCurve = dc;
+
       // white-noise buffer (reused)
       const len = ctx.sampleRate * 1.0;
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -247,6 +252,13 @@
       [76, 74, 72, 69, 72, 69, 65, 64, 67, 69, 72, 76, 74, 72, 71, 67],
       [null, 69, 72, 74, null, 72, 69, 67, null, 64, 67, 72, 71, 69, 67, null],
     ],
+    // boss-only shredding guitar solo — A-minor pentatonic licks (one bar each, rotated per bar)
+    _SOLO: [
+      [81, null, 79, 76, 79, null, 76, 74, 76, null, 74, 72, 74, 72, null, 69],
+      [69, 72, 74, 76, null, 79, 76, 79, 81, null, 79, 76, 74, 72, 74, null],
+      [76, null, null, 79, 76, null, 74, 72, null, 74, 72, 69, null, 67, 69, null],
+      [88, null, 84, 81, 84, 81, 79, 76, 79, 76, 74, 72, 74, 72, 69, null],
+    ],
     _mVol() { return this._mMode === "boss" ? 0.44 : this._mMode === "menu" ? 0.34 : 0.4; },
     _autoMode() {
       const g = TD.Game;
@@ -327,6 +339,24 @@
       if (space) { const s = ctx.createGain(); s.gain.value = space; g.connect(s); s.connect(this.spaceIn); }   // gated-verb tail
       src.start(t); src.stop(t + dur + 0.03);
     },
+    // distorted "metal" voice: saw → drive → waveshaper → tone filter → envelope (boss guitar + bass)
+    _mgtr(t, midi, dur, gain, opt) {
+      opt = opt || {};
+      const ctx = this.ctx;
+      const osc = ctx.createOscillator(); osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), t);
+      if (opt.to != null) osc.frequency.linearRampToValueAtTime(440 * Math.pow(2, (opt.to - 69) / 12), t + dur);   // string bend
+      const drive = ctx.createGain(); drive.gain.value = opt.drive || 8;
+      const ws = ctx.createWaveShaper(); ws.curve = this._distCurve; ws.oversample = "2x";
+      const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = opt.lp || 3200;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + (opt.atk || 0.005));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(drive); drive.connect(ws); ws.connect(tone); tone.connect(g); g.connect(this.musicGain);
+      if (opt.space) { const s = ctx.createGain(); s.gain.value = opt.space; g.connect(s); s.connect(this.spaceIn); }
+      osc.start(t); osc.stop(t + dur + 0.05);
+    },
     _mStepVoices(step, t) {
       const phrase = this._mPhrase || 0, bar = Math.floor(step / 16) % 8, b16 = step % 16;
       const prog = this._PROGS[this._mProgIdx || 0];
@@ -359,10 +389,23 @@
         if (phrase % 2 === 1 && bar === 7 && b16 >= 8) this._mn(t, 0.05, "bandpass", 1600 + b16 * 40, 0.08 * D, 1.0);
       }
 
-      // lead — sparse, airy motif (every half-bar), faded by intensity L
-      if (L > 0.05 && b16 % 8 === 0) {
+      // soft lead — sparse, airy motif; crossfades OUT as the boss metal solo (H) comes in
+      const tl = Math.max(0, L - H);
+      if (tl > 0.05 && b16 % 8 === 0) {
         const ld = this._LEADS[phrase % this._LEADS.length][(bar % 4) * 4 + b16 / 4];
-        if (ld) this._mt(t, ld, 0.5, "triangle", (this._mMode === "boss" ? 0.09 : 0.07) * L, { space: 0.55, atk: 0.02 });
+        if (ld) this._mt(t, ld, 0.5, "triangle", 0.07 * tl, { space: 0.55, atk: 0.02 });
+      }
+
+      // BOSS METAL — distorted gallop bass + shredding pentatonic solo, faded in by boss intensity H
+      if (H > 0.05) {
+        // galloping bass on the chord root (hits on 0, 2, 3 of every beat → metal gallop), palm-muted
+        if (b16 % 4 !== 1) this._mgtr(t, CH.root, 0.09, 0.07 * H, { lp: 1500, drive: 6, atk: 0.003 });
+        // guitar solo: a different lick each bar; notes that ring out get a string bend
+        const lick = this._SOLO[(phrase + bar) % this._SOLO.length], note = lick[b16];
+        if (note != null) {
+          const held = lick[(b16 + 1) % 16] == null;
+          this._mgtr(t, note, held ? 0.34 : 0.12, 0.075 * H, { lp: 3600, space: 0.3, atk: 0.004, to: held ? note + 2 : null });
+        }
       }
     },
   };
