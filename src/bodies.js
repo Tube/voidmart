@@ -182,6 +182,49 @@
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
       },
     },
+    {
+      id: "carrier", name: "Wheel Deal", icon: "🛞", seg: "#9fb0e0", color: "#9fb0e0",
+      desc: "No guns of its own — 2 red drones orbit and fire your weapon for you. +15% field, −40% turn. Projectile upgrades add drones instead.",
+      noShipWeapon: true, droneWeapon: true, droneColor: "#ff5a5a", startDrones: 2, dronesForProj: true, upgradeDrones: 2,
+      apply(st) { st.maxShield = Math.round(st.maxShield * 1.15); st.turn *= 0.6; },
+      upgrade(st) { st.maxShield = Math.round(st.maxShield * 1.3); },   // Mk2: +30% field (and +2 drones via upgradeDrones)
+      draw(ctx, r, inv, up) {
+        const col = inv ? "#ffffff" : this.color;
+        if (up && !inv) fins(ctx, [[-r * 1.15, 0], [r * 1.15, r], [r * 1.15, -r]], this.color);
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        // outer rim (tire)
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.12, 0, M.TAU);
+        ctx.lineWidth = up ? 5 : 4; ctx.strokeStyle = col;
+        ctx.shadowColor = this.color; ctx.shadowBlur = up ? 26 : 14; ctx.stroke();
+        // inner rim
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, M.TAU);
+        ctx.lineWidth = 2.4; ctx.shadowBlur = up ? 16 : 8; ctx.stroke();
+        ctx.shadowBlur = 0;
+        // 5 spokes from hub to rim
+        ctx.lineWidth = 2.2; ctx.strokeStyle = inv ? "#ffffff" : lighten(this.color, 0.18);
+        for (let i = 0; i < 5; i++) {
+          const a = i / 5 * M.TAU - Math.PI / 2;
+          ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3); ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); ctx.stroke();
+        }
+        // hub
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, M.TAU);
+        ctx.fillStyle = inv ? "#ffffff" : col; ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.shadowColor = this.color; ctx.shadowBlur = up ? 14 : 6; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+        // crisp white readout ring on the tire
+        ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(255,255,255,.85)";
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.12, 0, M.TAU); ctx.stroke();
+        // Mk2: slow-blinking neon hub light
+        if (up && !inv) {
+          const t = (typeof performance !== "undefined" ? performance.now() : 0) / 1000;
+          const pulse = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(t * 2));
+          const bright = lighten(this.color, 0.5);
+          ctx.globalAlpha = pulse; ctx.fillStyle = bright; ctx.shadowColor = bright; ctx.shadowBlur = 10;
+          ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, M.TAU); ctx.fill();
+          ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        }
+        ctx.lineCap = "butt"; ctx.lineJoin = "miter";
+      },
+    },
   ];
 
   // The free starter hull. Same chassis + base stats as the Lucky Clover, but

@@ -119,7 +119,7 @@
           '<div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0">' +
             '<div class="deal-dept">' + u.dept + (have ? ' · OWNED ×' + have : '') + '</div>' +
             '<div class="deal-name">' + u.name + '</div>' +
-            '<div class="deal-desc">' + u.desc + '</div>' +
+            '<div class="deal-desc">' + ((u.descFor && u.descFor(g.ship)) || u.desc) + '</div>' +
             '<div class="deal-meta"><span class="deal-stars">' + U.STARS[u.rarity] + '</span>' +
               '<span class="deal-sold">' + U.SOLD[u.rarity]() + '</span></div>' +
             '<div class="deal-price"><span class="price-now">FREE</span>' +

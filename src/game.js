@@ -184,6 +184,7 @@
     upgradeShip() {
       const c = this.ship.chassis, st = this.ship.stats;
       if (c && c.upgrade) c.upgrade(st); // Mk2: amplify the hull's UPSIDE only (no extra downside)
+      if (c && c.upgradeDrones) for (let i = 0; i < c.upgradeDrones; i++) this.ship.addDrone();
       st.maxHull += 20;
       this.ship.hull = this.ship.baseHull + st.maxHull;     // top up to the new max
       this.ship.shield = Math.min(this.fieldCap(), Math.max(this.ship.shield, st.maxShield));
@@ -196,6 +197,7 @@
       const s = this.ship;
       s.chassis = body;
       if (body.apply) body.apply(s.stats);
+      if (body.startDrones) for (let i = 0; i < body.startDrones; i++) s.addDrone();   // drone-carrier hulls launch with a squad
       // refill hull & field to the (possibly changed) maxima
       s.hull = s.baseHull + s.stats.maxHull;
       s.shield = s.stats.maxShield;
@@ -1009,19 +1011,21 @@
           if (Math.hypot(e.x - s.x, e.y - s.y) < R + e.r) this.damageEnemy(e, st.thorns * dt, false, e);
         }
       }
-      // auto-fire
-      s.fireCD -= dt;
-      const w = TD.WEAPONS[st.weapon];
-      const rate = w.rate * st.fireRate * (s.fireMul || 1);
-      let guard = 0;
-      while (s.fireCD <= 0 && rate > 0 && guard < 4) {
-        w.fire(this, s);
-        this.onShotFired();
-        s.fireCD += 1 / rate;
-        guard++;
+      // auto-fire — skipped for drone-carrier hulls that have no gun of their own (drones do the shooting)
+      if (!(s.chassis && s.chassis.noShipWeapon)) {
+        s.fireCD -= dt;
+        const w = TD.WEAPONS[st.weapon];
+        const rate = w.rate * st.fireRate * (s.fireMul || 1);
+        let guard = 0;
+        while (s.fireCD <= 0 && rate > 0 && guard < 4) {
+          w.fire(this, s);
+          this.onShotFired();
+          s.fireCD += 1 / rate;
+          guard++;
+        }
+        if (guard > 0) TD.Audio.shoot(st.weapon);
+        if (rate <= 0) s.fireCD = 0.1;
       }
-      if (guard > 0) TD.Audio.shoot(st.weapon);
-      if (rate <= 0) s.fireCD = 0.1;
       TD.Audio.setThrust(s.flame);
     },
     thrustParticle() {
@@ -1036,7 +1040,9 @@
 
     updateDrones(dt) {
       const s = this.ship, n = s.drones.length;
+      const wpnMode = !!(s.chassis && s.chassis.droneWeapon);   // drones fire the ship's primary weapon
       s.droneSpin = (s.droneSpin || 0) + 1.6 * dt;
+      if (this._droneSfxT > 0) this._droneSfxT -= dt;
       for (let i = 0; i < n; i++) {
         const d = s.drones[i];
         d.ang = s.droneSpin + (i / n) * M.TAU;   // evenly spaced around the player, whatever the count
@@ -1044,16 +1050,24 @@
         d.y = s.y + Math.sin(d.ang) * d.dist * S.unit;
         d.fireCD -= dt;
         if (d.fireCD <= 0) {
-          const t = TD.weaponNearest(this, d.x, d.y, 320 * S.unit);
+          const t = TD.weaponNearest(this, d.x, d.y, (wpnMode ? 360 : 320) * S.unit);
           if (t) {
             const a = Math.atan2(t.y - d.y, t.x - d.x);
             d.face = a;   // point the drone the way it fires
-            const crit = M.chance(s.stats.critChance);
-            this.projectiles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 700 * S.unit, vy: Math.sin(a) * 700 * S.unit,
-              r: 3.4 * S.unit, dmg: (7 * s.stats.damage * (s.damageMul || 1)) * (crit ? s.stats.critMult : 1), life: 0.9, maxLife: 0.9,
-              pierce: 0, hits: new Set(), color: "#9bffe0", glow: 9, crit, kind: "bolt", homing: 0, splash: 0 });
-            d.fireCD = 0.5;
-          } else d.fireCD = 0.15;
+            if (wpnMode) {
+              const w = TD.WEAPONS[s.stats.weapon];
+              w.fire(this, { x: d.x, y: d.y, angle: a, r: s.r, stats: s.stats,
+                weaponTier: s.weaponTier || 0, damageMul: s.damageMul || 1, vx: 0, vy: 0 });
+              if (this._droneSfxT <= 0) { TD.Audio.shoot(s.stats.weapon); this._droneSfxT = 0.06; }
+              d.fireCD = 1 / Math.max(0.1, w.rate * s.stats.fireRate * (s.fireMul || 1));
+            } else {
+              const crit = M.chance(s.stats.critChance);
+              this.projectiles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 700 * S.unit, vy: Math.sin(a) * 700 * S.unit,
+                r: 3.4 * S.unit, dmg: (7 * s.stats.damage * (s.damageMul || 1)) * (crit ? s.stats.critMult : 1), life: 0.9, maxLife: 0.9,
+                pierce: 0, hits: new Set(), color: "#9bffe0", glow: 9, crit, kind: "bolt", homing: 0, splash: 0 });
+              d.fireCD = 0.5;
+            }
+          } else d.fireCD = wpnMode ? 0.12 : 0.15;
         }
       }
     },
@@ -1516,13 +1530,14 @@
         }
         ctx.restore();
       });
-      // drones
+      // drones — outline colour comes from the chassis (default green; e.g. red for the Wheel Deal)
+      const dcol = (s.chassis && s.chassis.droneColor) || "#52ffce";
       for (const d of s.drones) {
         this.eachWrap(d.x, d.y, 12 * S.unit, (x, y) => {
           ctx.save(); ctx.translate(x, y); ctx.rotate(d.face != null ? d.face : d.ang);
           ctx.beginPath(); ctx.moveTo(6 * S.unit, 0); ctx.lineTo(-5 * S.unit, 4 * S.unit); ctx.lineTo(-5 * S.unit, -4 * S.unit);
-          ctx.closePath(); ctx.fillStyle = "rgba(30,80,70,.7)"; ctx.strokeStyle = "#52ffce"; ctx.lineWidth = 1.6;
-          ctx.shadowColor = "#52ffce"; ctx.shadowBlur = 8; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+          ctx.closePath(); ctx.fillStyle = "rgba(28,26,34,.72)"; ctx.strokeStyle = dcol; ctx.lineWidth = 1.6;
+          ctx.shadowColor = dcol; ctx.shadowBlur = 8; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
           ctx.restore();
         });
       }
