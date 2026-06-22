@@ -947,6 +947,7 @@
     z_horse: {
       name: "Hobby-Horse Hauler", color: "#c9863f", baseHp: 1250, contact: 30, score: 1850, coins: 92, isBoss: true,
       noChargeResist: true,   // unlike the bull, takes full ram damage mid-charge
+      hitEllipse: { rx: 1.7, ry: 0.6 },   // hitbox = the drawn body ellipse (oriented to e.ang)
       banner: ["🐎 HOBBY-HORSE HAULER", "Gallops the aisles. Free delivery."],
       spawn(e) { const u = TD.Screen.unit; e.r = 30 * u; e.mode = "aim"; e.ang = M.rand(0, M.TAU); e.timer = 1.2; e.fire = 0; e.glow = 0; e.t = 0; },
       update(e, game, dt) {

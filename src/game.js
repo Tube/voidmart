@@ -397,10 +397,19 @@
       TD.UI.bossBanner(banner[0], banner[1]);
     },
 
-    // segment-aware overlap test: main body circle OR any e.parts circle
+    // circle-of-radius `rad` at (x,y) vs an enemy's oriented body ellipse (def.hitEllipse: {rx,ry} as ×e.r)
+    ellipseHit(e, x, y, rad) {
+      const he = e.def.hitEllipse;
+      const rx = e.r * he.rx + rad, ry = e.r * he.ry + rad;
+      const dx = x - e.x, dy = y - e.y;
+      const c = Math.cos(e.ang), s = Math.sin(e.ang);
+      const lx = dx * c + dy * s, ly = -dx * s + dy * c;   // un-rotate into the ellipse's local frame
+      return (lx * lx) / (rx * rx) + (ly * ly) / (ry * ry) <= 1;
+    },
+    // segment-aware overlap test: main body (ellipse if defined, else circle) OR any e.parts circle
     hitEnemy(e, x, y, rad) {
-      const rr = rad + e.r;
-      if ((x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) < rr * rr) return true;
+      if (e.def.hitEllipse) { if (this.ellipseHit(e, x, y, rad)) return true; }
+      else { const rr = rad + e.r; if ((x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) < rr * rr) return true; }
       if (e.parts) {
         for (const pt of e.parts) {
           const r2 = rad + pt.r;
@@ -1241,9 +1250,10 @@
       // enemies vs ship (contact)
       for (const e of this.enemies) {
         if (e.dead) continue;
-        const rr = e.r + s.r;
         const dl = M.wrapDelta(e.x, e.y, s.x, s.y, S.W, S.H);
-        let touching = dl.dx * dl.dx + dl.dy * dl.dy < rr * rr;
+        let touching;
+        if (e.def.hitEllipse) touching = this.ellipseHit(e, e.x + dl.dx, e.y + dl.dy, s.r);
+        else { const rr = e.r + s.r; touching = dl.dx * dl.dx + dl.dy * dl.dy < rr * rr; }
         if (!touching && e.parts) {            // segmented bosses: test each body part
           for (const pt of e.parts) {
             const r2 = pt.r + s.r;
