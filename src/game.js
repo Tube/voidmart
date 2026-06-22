@@ -336,6 +336,9 @@
       const d = this.time / 28;
       return 1 + 0.06 * d + (d > 24 ? 0.2 * (Math.pow(1.12, d - 24) - 1) : 0);
     },
+    // Enemy bullet-damage multiplier. Grows ~sqrt of the HP difficulty so late-game shots
+    // actually threaten a big field/hull instead of being facetanked (HP alone wasn't enough).
+    threat() { return Math.sqrt(this.difficulty()); },
     needFor(lvl) { return Math.round(8 + lvl * 5 + lvl * lvl * 1.15); },
 
     edgePoint() {

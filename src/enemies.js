@@ -19,7 +19,7 @@
     if (game.enemyShots.length > 260) return;
     game.enemyShots.push({
       x, y, vx: Math.cos(ang) * speed * u * 0.75, vy: Math.sin(ang) * speed * u * 0.75,
-      r: (r || 5) * u, dmg, life: 4.2, color: color || "#ff5a7a", glow: 10,
+      r: (r || 5) * u, dmg: dmg * (game.threat ? game.threat() : 1), life: 4.2, color: color || "#ff5a7a", glow: 10,
     });
   }
   function steer(e, ang, accel, dt, maxSpeed) {
