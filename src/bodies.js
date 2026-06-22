@@ -185,7 +185,7 @@
     {
       id: "carrier", name: "Wheel Deal", icon: "🛞", seg: "#9fb0e0", color: "#9fb0e0",
       desc: "No guns of its own — 2 red drones orbit and fire your weapon for you. +15% field, −40% turn. Projectile upgrades add drones instead.",
-      noShipWeapon: true, droneWeapon: true, droneColor: "#ff5a5a", startDrones: 2, dronesForProj: true, upgradeDrones: 2,
+      noShipWeapon: true, droneWeapon: true, droneRate: 0.5, droneColor: "#ff5a5a", startDrones: 2, dronesForProj: true, upgradeDrones: 2,
       apply(st) { st.maxShield = Math.round(st.maxShield * 1.15); st.turn *= 0.6; },
       upgrade(st) { st.maxShield = Math.round(st.maxShield * 1.3); },   // Mk2: +30% field (and +2 drones via upgradeDrones)
       draw(ctx, r, inv, up) {

@@ -1059,7 +1059,7 @@
               w.fire(this, { x: d.x, y: d.y, angle: a, r: s.r, stats: s.stats,
                 weaponTier: s.weaponTier || 0, damageMul: s.damageMul || 1, vx: 0, vy: 0 });
               if (this._droneSfxT <= 0) { TD.Audio.shoot(s.stats.weapon); this._droneSfxT = 0.06; }
-              d.fireCD = 1 / Math.max(0.1, w.rate * s.stats.fireRate * (s.fireMul || 1));
+              d.fireCD = 1 / Math.max(0.1, w.rate * s.stats.fireRate * (s.fireMul || 1) * (s.chassis.droneRate || 1));
             } else {
               const crit = M.chance(s.stats.critChance);
               this.projectiles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 700 * S.unit, vy: Math.sin(a) * 700 * S.unit,
