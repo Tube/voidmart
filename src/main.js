@@ -3,6 +3,18 @@
    ============================================================ */
 (function () {
   "use strict";
+
+  // Keep the device screen awake during play (Screen Wake Lock API). The OS auto-releases
+  // the lock whenever the app is backgrounded, so we re-acquire it on return / on play.
+  let wakeLock = null;
+  async function keepAwake() {
+    if (!("wakeLock" in navigator) || wakeLock) return;
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } catch (e) { /* denied (e.g. low battery, not focused) — harmless, screen just sleeps as usual */ }
+  }
+
   function boot() {
     const TD = window.TD;
     TD.UI.init();
@@ -14,8 +26,8 @@
     const unlock = () => { TD.Audio.init(); };
     document.addEventListener("pointerdown", unlock, { once: true });
 
-    $("playBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
-    $("retryBtn").addEventListener("click", () => { TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
+    $("playBtn").addEventListener("click", () => { keepAwake(); TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
+    $("retryBtn").addEventListener("click", () => { keepAwake(); TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });
     $("rerollBtn").addEventListener("click", () => { TD.Audio.reroll(); TD.Game.rerollShop(); });
     $("spinBtn").addEventListener("click", () => { TD.UI.onSpin(); });
     const skipBtn = $("wheelSkipBtn");
@@ -28,9 +40,10 @@
       if (on) TD.Audio.ui();
     });
 
-    // pause when tab/app is backgrounded
+    // pause when tab/app is backgrounded; re-arm the screen wake lock on return to a live run
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && TD.Game.state === "play") TD.Game.togglePause();
+      if (document.hidden) { if (TD.Game.state === "play") TD.Game.togglePause(); }
+      else if (TD.Game.state !== "menu" && TD.Game.state !== "over") keepAwake();
     });
 
     // If the installed app launched into browser-tab fallback, nudge the player to relaunch
