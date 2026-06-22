@@ -239,6 +239,8 @@
       ["Am", "G", "F", "E"],
       ["C", "G", "Am", "F"],
       ["Dm", "Am", "Em", "G"],
+      ["C", "Em", "Am", "G"],     // brighter lift
+      ["Am", "Dm", "G", "Em"],    // more movement/tension
     ],
     _LEADS: [
       [69, 72, 71, 69, 69, 72, 69, 65, 67, 64, 67, 72, 74, 71, 67, 62],
@@ -258,7 +260,7 @@
     },
     startMusic() {
       if (!this.ctx || !this.musicGain || this._mOn) return;
-      this._mOn = true; this._mMode = this._autoMode(); this._mStep = 0; this._mPhrase = 0;
+      this._mOn = true; this._mMode = this._autoMode(); this._mStep = 0; this._mPhrase = 0; this._mProgIdx = 0;
       this._mNextT = this.now() + 0.08;
       const t0 = this._mTargets();
       this._mIntD = t0.d; this._mIntL = t0.l; this._mIntH = t0.h;   // start already settled for the opening mood
@@ -288,7 +290,11 @@
       while (this._mNextT < this.now() + 0.12) {
         this._mStepVoices(this._mStep, this._mNextT);
         this._mNextT += sp16; this._mStep++;
-        if (this._mStep >= 128) { this._mStep = 0; this._mPhrase = (this._mPhrase + 1) % 1000; }   // 8-bar phrase
+        if (this._mStep >= 128) {                                   // 8-bar phrase boundary
+          this._mStep = 0; this._mPhrase = (this._mPhrase + 1) % 1000;
+          // periodically throw in a different progression (70% swap, never an immediate repeat)
+          if (Math.random() < 0.7) { let n; do { n = (Math.random() * this._PROGS.length) | 0; } while (n === this._mProgIdx); this._mProgIdx = n; }
+        }
       }
     },
     // pitched music voice (midi in), routed through the music submix
@@ -323,7 +329,7 @@
     },
     _mStepVoices(step, t) {
       const phrase = this._mPhrase || 0, bar = Math.floor(step / 16) % 8, b16 = step % 16;
-      const prog = this._PROGS[phrase % this._PROGS.length];
+      const prog = this._PROGS[this._mProgIdx || 0];
       const CH = this._CH[prog[Math.floor(bar / 2) % 4]];   // 2 bars per chord → spacious, atmospheric harmony
       const D = this._mIntD || 0, L = this._mIntL || 0, H = this._mIntH || 0;   // smooth layer intensities (0..1)
 
