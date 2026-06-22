@@ -330,7 +330,12 @@
     },
 
     /* ---------- helpers exposed to catalogs ---------- */
-    difficulty() { return 1 + this.level * 0.08 + this.time / 160; },
+    // Difficulty (enemy HP scale) ramps gently early, then exponentially — the real
+    // uptick kicks in around day 25. d = continuous in-game days (a "day" is 28s).
+    difficulty() {
+      const d = this.time / 28;
+      return 1 + 0.06 * d + (d > 24 ? 0.2 * (Math.pow(1.12, d - 24) - 1) : 0);
+    },
     needFor(lvl) { return Math.round(8 + lvl * 5 + lvl * lvl * 1.15); },
 
     edgePoint() {
@@ -1027,9 +1032,11 @@
     },
 
     updateDrones(dt) {
-      const s = this.ship;
-      for (const d of s.drones) {
-        d.ang += d.spin * dt;
+      const s = this.ship, n = s.drones.length;
+      s.droneSpin = (s.droneSpin || 0) + 1.6 * dt;
+      for (let i = 0; i < n; i++) {
+        const d = s.drones[i];
+        d.ang = s.droneSpin + (i / n) * M.TAU;   // evenly spaced around the player, whatever the count
         d.x = s.x + Math.cos(d.ang) * d.dist * S.unit;
         d.y = s.y + Math.sin(d.ang) * d.dist * S.unit;
         d.fireCD -= dt;
@@ -1037,6 +1044,7 @@
           const t = TD.weaponNearest(this, d.x, d.y, 320 * S.unit);
           if (t) {
             const a = Math.atan2(t.y - d.y, t.x - d.x);
+            d.face = a;   // point the drone the way it fires
             const crit = M.chance(s.stats.critChance);
             this.projectiles.push({ x: d.x, y: d.y, vx: Math.cos(a) * 700 * S.unit, vy: Math.sin(a) * 700 * S.unit,
               r: 3.4 * S.unit, dmg: (7 * s.stats.damage * (s.damageMul || 1)) * (crit ? s.stats.critMult : 1), life: 0.9, maxLife: 0.9,
@@ -1508,7 +1516,7 @@
       // drones
       for (const d of s.drones) {
         this.eachWrap(d.x, d.y, 12 * S.unit, (x, y) => {
-          ctx.save(); ctx.translate(x, y); ctx.rotate(d.ang * 2);
+          ctx.save(); ctx.translate(x, y); ctx.rotate(d.face != null ? d.face : d.ang);
           ctx.beginPath(); ctx.moveTo(6 * S.unit, 0); ctx.lineTo(-5 * S.unit, 4 * S.unit); ctx.lineTo(-5 * S.unit, -4 * S.unit);
           ctx.closePath(); ctx.fillStyle = "rgba(30,80,70,.7)"; ctx.strokeStyle = "#52ffce"; ctx.lineWidth = 1.6;
           ctx.shadowColor = "#52ffce"; ctx.shadowBlur = 8; ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;

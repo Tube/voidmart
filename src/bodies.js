@@ -64,9 +64,9 @@
   const LIST = [
     {
       id: "balanced", name: "Lucky Clover", icon: "🍀", seg: "#3dd980", color: "#3dd980",
-      desc: "All-rounder hull with a thrifty streak: +10% crit chance and +15% coins from kills.",
-      apply(st) { st.critChance += 0.10; st.coinDrop *= 1.15; },
-      upgrade(st) { st.critChance += 0.10; st.coinDrop *= 1.15; },   // Mk2: upside only
+      desc: "All-rounder hull with a thrifty streak: +10% crit chance, +15% coins from kills, and a 50% wider coin-pickup radius.",
+      apply(st) { st.critChance += 0.10; st.coinDrop *= 1.15; st.pickup *= 1.5; },   // +50% coin pickup radius
+      upgrade(st) { st.critChance += 0.10; st.coinDrop *= 1.15; st.pickup *= 1.5; },   // Mk2: upside only
       draw(ctx, r, inv, up) {
         hull(ctx, this.color, inv, [[r * 1.4, 0], [-r, r * 0.85], [-r * 0.5, 0], [-r, -r * 0.85]], [r * 0.25, 0, r * 0.28], up);
       },

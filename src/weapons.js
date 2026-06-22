@@ -152,7 +152,7 @@
           const px = s.x + Math.cos(a) * muzzle, py = s.y + Math.sin(a) * muzzle;
           const crit = M.chance(s.stats.critChance);
           game.projectiles.push(P({ x: px, y: py, vx: Math.cos(a) * 220 * u, vy: Math.sin(a) * 220 * u, angle: a,
-            r: 5 * u, dmg: dmgOf(s, t2 ? 20 : 16, crit), life: 2.6, maxLife: 2.6,
+            r: 5 * u, dmg: dmgOf(s, t2 ? 20 : 16, crit), life: 8, maxLife: 8,   // guided: hunt for up to 8s
             pierce: s.stats.pierce, hits: new Set(), color: t2 ? "#ffa85e" : "#ff8a3b", glow: t2 ? 16 : 14,
             kind: "missile", homing: 1, turnRate: t2 ? 7.5 : 5.5, accel: 720 * u, maxSpeed: 560 * u,
             crit, splash: Math.max(s.stats.splash, (t2 ? 40 : 26) * u) }));
