@@ -971,17 +971,22 @@
       this.updatePrizes(dt);
       const tdL = this.prizeLvl("twoday");
       const moveBoost = 1 + 0.16 * tdL;
+      // tractor beams that latched on last frame: each one slows movement (2+ → immobile);
+      // turning always works at >=half. The held velocity is bled off by extra drag below.
+      const beams = s._beams || 0; s._beams = 0;
+      const beamMove = Math.max(0, 1 - 0.5 * beams);
+      const beamTurn = Math.max(0.5, beamMove);
       let thrusting = false;
       if (TD.Input.active) {
         const tx = TD.Input.x, ty = TD.Input.y;
         const dl = M.wrapDelta(s.x, s.y, tx, ty, S.W, S.H);
         const target = Math.atan2(dl.dy, dl.dx);
-        const turn = 7.2 * st.turn * dt;
+        const turn = 7.2 * st.turn * beamTurn * dt;
         s.angle = M.angToward(s.angle, target, turn);
         // thrust toward facing if pointer isn't basically on top of the ship
         if (dl.d > s.r * 0.8) {
           thrusting = true;
-          const f = 780 * st.thrust * S.unit * moveBoost;
+          const f = 780 * st.thrust * S.unit * moveBoost * beamMove;
           s.vx += Math.cos(s.angle) * f * dt;
           s.vy += Math.sin(s.angle) * f * dt;
           s.flame = Math.min(1, s.flame + dt * 6);
@@ -992,7 +997,7 @@
 
       // drag + speed cap — extra brake drag only while coasting, so quick-stop hulls
       // pull up fast without sacrificing top speed under thrust
-      const dragRate = 0.9 + (thrusting ? 0 : (st.brakeDrag || 0));
+      const dragRate = 0.9 + (thrusting ? 0 : (st.brakeDrag || 0)) + beams * 2;   // beams drag you to a halt
       const drag = Math.exp(-dragRate * dt);
       s.vx *= drag; s.vy *= drag;
       const maxSp = 320 * st.moveSpeed * S.unit * moveBoost;
@@ -1469,6 +1474,7 @@
         this.renderEnemyShots(ctx);
         this.renderProjectiles(ctx);
         this.renderLightning(ctx);
+        this.renderBeams(ctx);
         this.renderEnemies(ctx);
         this.renderShip(ctx);
         this.renderParticles(ctx);
@@ -1623,6 +1629,29 @@
       }
     },
 
+    // fat, pulsing tractor beams from beaming enemies to the ship
+    renderBeams(ctx) {
+      const s = this.ship;
+      let any = false;
+      for (const e of this.enemies) {
+        if (!e.beamOn) continue;
+        any = true;
+        const pulse = 0.55 + 0.45 * Math.sin(this.time * 9 + e.x * 0.04 + e.y * 0.04);
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.lineCap = "round";
+        // outer glow
+        ctx.strokeStyle = e.beamColor; ctx.shadowColor = e.beamColor; ctx.shadowBlur = 18;
+        ctx.lineWidth = (5 + 4 * pulse) * S.unit; ctx.globalAlpha = 0.45 + 0.3 * pulse;
+        ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(s.x, s.y); ctx.stroke();
+        // bright core
+        ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,.9)";
+        ctx.lineWidth = (1.6 + 1.2 * pulse) * S.unit; ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(s.x, s.y); ctx.stroke();
+        ctx.restore();
+      }
+      if (any) { ctx.globalCompositeOperation = "source-over"; ctx.lineCap = "butt"; ctx.globalAlpha = 1; }
+    },
     renderEnemies(ctx) {
       for (const e of this.enemies) {
         const cb = (x, y) => {

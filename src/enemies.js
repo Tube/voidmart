@@ -22,6 +22,23 @@
       r: (r || 5) * u, dmg: dmg * (game.threat ? game.threat() : 1), life: 4.2, color: color || "#ff5a7a", glow: 10,
     });
   }
+  // Tractor beam: latches onto the ship within range — slows movement (accumulates on ship._beams,
+  // applied in updateShip), rapidly drains the field + blocks its regen, and (if opt.hullDrain set)
+  // gnaws the hull once the field is gone. Sets e.beamOn / e.beamColor for the renderer.
+  function tractorBeam(e, game, dt, opt) {
+    const u = TD.Screen.unit, s = game.ship, d = dToShip(e, game);
+    e.beamColor = opt.color;
+    e.beamOn = d.d < (opt.range || 300) * u && s.hull > 0 && s.invuln <= 0 && game.state === "play";
+    if (!e.beamOn) return;
+    s._beams = (s._beams || 0) + 1;             // movement-lock accumulator
+    s.hitTimer = 0;                              // hold the field down (no regen while beamed)
+    if (s.shield > 0) {
+      s.shield = Math.max(0, s.shield - (opt.fieldDrain || 80) * dt);   // rapid field drain
+    } else if (opt.hullDrain) {
+      s.hull -= opt.hullDrain * dt;              // field gone → moderate hull drain
+      if (s.hull <= 0) { s.hull = 0; game.gameOver(); }
+    }
+  }
   function steer(e, ang, accel, dt, maxSpeed) {
     e.vx += Math.cos(ang) * accel * dt;
     e.vy += Math.sin(ang) * accel * dt;
@@ -173,8 +190,8 @@
         steer(e, Math.atan2(vy, vx), 760 * u, dt, 250 * u);
         e.vx *= 0.92; e.vy *= 0.92;
         e.ang = Math.atan2(e.vy, e.vx);
-        e.fire -= dt;
-        if (e.fire <= 0) { e.fire = M.rand(0.7, 1.1); enemyShot(game, e.x, e.y, d.ang + M.rand(-0.05, 0.05), 280, 6, "#ffd23b", 4); }
+        // BLUE tractor beam: slows you + rapidly drains the field (no regen while latched on)
+        tractorBeam(e, game, dt, { color: "#37b6ff", range: 300, fieldDrain: 85 });
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
@@ -1110,6 +1127,21 @@
         } else if (e.combShips.filter((c) => c && !c.dead).length === 0) {
           e.combOut = false; e.combTimer = 10;   // all back home → relaunch in 10s
         }
+        // EGG COMBO: if a comb drone has you in its tractor beam, the rooster slowly opens its
+        // beak (2.5s) and then launches a big, fast, glowing egg for heavy damage.
+        const combBeaming = e.combShips && e.combShips.some((c) => c && !c.dead && c.beamOn);
+        if (combBeaming) {
+          e.eggCharge = (e.eggCharge || 0) + dt;
+          if (e.eggCharge >= 2.5) {
+            e.eggCharge = 0;
+            const a = dToShip(e, game).ang;
+            const bx = e.x + Math.cos(e.ang) * e.r * 1.2, by = e.y + Math.sin(e.ang) * e.r * 1.2;
+            enemyShot(game, bx, by, a, 470, 26, "#fff7e0", 13);   // the egg — big, fast, high damage
+            game.shake(9); game.addPop(bx, by, e.r * 2.2, "#fff7e0", { w: 4 });
+          }
+        } else {
+          e.eggCharge = Math.max(0, (e.eggCharge || 0) - dt * 2);   // beam lost → beak closes (faster)
+        }
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
@@ -1123,8 +1155,22 @@
           ctx.beginPath(); ctx.arc(-e.r * 0.1 + i * e.r * 0.25, -e.r * 0.8, e.r * 0.16, 0, M.TAU); ctx.fill();
         }
         ctx.shadowBlur = 0;
-        // beak + tail feathers
-        ctx.beginPath(); ctx.moveTo(e.r * 0.8, 0); ctx.lineTo(e.r * 1.3, e.r * 0.12); ctx.lineTo(e.r * 0.8, e.r * 0.2); ctx.closePath(); ctx.fillStyle = "#ffc223"; ctx.fill();
+        // centered beak — splits into upper/lower mandibles that open as the egg charges
+        const open = Math.min(1, (e.eggCharge || 0) / 2.5), gap = open * e.r * 0.5;
+        ctx.fillStyle = "#ffc223"; ctx.shadowColor = "#ffb300"; ctx.shadowBlur = open > 0 ? 6 : 0;
+        for (const s of [-1, 1]) {   // s = -1 upper mandible, +1 lower
+          ctx.beginPath();
+          ctx.moveTo(e.r * 0.78, s * e.r * 0.04);
+          ctx.lineTo(e.r * 1.35, s * gap);
+          ctx.lineTo(e.r * 0.78, s * (e.r * 0.2 + gap));
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        if (open > 0.05) {   // glowing egg forming in the open beak, brightening as it nears launch
+          ctx.beginPath(); ctx.ellipse(e.r * 1.05, 0, e.r * 0.18 * open, e.r * 0.24 * open, 0, 0, M.TAU);
+          ctx.fillStyle = "#fff7e0"; ctx.shadowColor = "#fff7e0"; ctx.shadowBlur = 8 + 12 * open; ctx.globalAlpha = 0.5 + 0.5 * open;
+          ctx.fill(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        }
         for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-e.r * 0.7, 0); ctx.lineTo(-e.r * 1.5, i * e.r * 0.6); ctx.strokeStyle = "#37b6ff"; ctx.lineWidth = 3; ctx.stroke(); }
       },
       die(e, game) { if (e.combShips) for (const c of e.combShips) if (c && !c.dead) game.killEnemy(c); },
@@ -1148,8 +1194,8 @@
         steer(e, Math.atan2(vy, vx), 900 * u, dt, 300 * u);
         e.vx *= 0.92; e.vy *= 0.92;
         e.ang = Math.atan2(e.vy, e.vx);
-        e.fire -= dt;
-        if (e.fire <= 0) { e.fire = M.rand(0.5, 0.8); enemyShot(game, e.x, e.y, d.ang + M.rand(-0.06, 0.06), 300, 7, "#ff2d4f", 4); }
+        // RED tractor beam: slows you + drains the field, then gnaws the hull once the field is gone
+        tractorBeam(e, game, dt, { color: "#ff3b3b", range: 300, fieldDrain: 85, hullDrain: 12 });
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
