@@ -18,7 +18,7 @@
       maxHull: 0, hullRegen: 0,
       maxShield: 40, shieldRegen: 8, shieldDelay: 2.2,
       pickup: 1, xp: 1, coinDrop: 1,
-      bodyDmg: 0, ramArmor: 0, lifesteal: 0,
+      bodyDmg: 0, ramArmor: 0, ramDmgMul: 1, lifesteal: 0,
       homing: 0, splash: 0, splashDmg: 0.4,
       reflect: false, thorns: 0, dodge: 0, blink: false,
       hullDmgCap: 0,            // 0 = none; else max fraction of max-hull lost per 0.5s window
@@ -1274,6 +1274,7 @@
         }
       }
       // enemies vs ship (contact)
+      if (s.ricochetCD > 0) s.ricochetCD -= dt;
       for (const e of this.enemies) {
         if (e.dead) continue;
         const dl = M.wrapDelta(e.x, e.y, s.x, s.y, S.W, S.H);
@@ -1291,10 +1292,18 @@
           const rvx = s.vx - (e.vx || 0), rvy = s.vy - (e.vy || 0);
           const relSpeed = Math.hypot(rvx, rvy);
           const velF = M.clamp(0.4 + relSpeed / (280 * S.unit), 0.4, 2.4);
-          // ram damage to enemy (reduced — or nullified — while the enemy is charging)
+          // ricochet hulls (Hover Cart) bounce off enemies instead of plowing through — speed retained ×chassis.ricochet
+          if (s.chassis && s.chassis.ricochet && (s.ricochetCD || 0) <= 0) {
+            const n = Math.hypot(dl.dx, dl.dy) || 1;
+            const sp = Math.hypot(s.vx, s.vy) * s.chassis.ricochet;
+            s.vx = dl.dx / n * sp; s.vy = dl.dy / n * sp;        // dl points enemy→ship: shove back out
+            s.x += dl.dx / n * 6 * S.unit; s.y += dl.dy / n * 6 * S.unit;
+            s.ricochetCD = 0.12;
+          }
+          // ram damage to enemy (reduced — or nullified — while the enemy is charging; ×hull ram multiplier)
           if (s.stats.bodyDmg > 0 && (e.contactCD || 0) <= 0) {
             const cr = this.chargeCollisionResist(e);
-            if (cr > 0) this.damageEnemy(e, s.stats.bodyDmg * velF * cr, false, e);
+            if (cr > 0) this.damageEnemy(e, s.stats.bodyDmg * velF * cr * (s.stats.ramDmgMul || 1), false, e);
             e.contactCD = 0.4;
           }
           if (e.dead) continue;
@@ -1306,9 +1315,11 @@
           } else if ((e.contactHitCD || 0) <= 0) {
             this.damageShip(e.contact * velF, null, hullResist);
             e.contactHitCD = 0.55;
-            // small knockback
-            const a = Math.atan2(dl.dy, dl.dx);
-            s.vx += Math.cos(a) * 120; s.vy += Math.sin(a) * 120;
+            // small knockback — skipped on ricochet hulls (their bounce already redirected velocity)
+            if (!(s.chassis && s.chassis.ricochet)) {
+              const a = Math.atan2(dl.dy, dl.dx);
+              s.vx += Math.cos(a) * 120; s.vy += Math.sin(a) * 120;
+            }
           }
         }
         if (e.contactHitCD > 0) e.contactHitCD -= dt;

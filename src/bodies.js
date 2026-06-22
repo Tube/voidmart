@@ -144,10 +144,11 @@
     },
     {
       id: "saucer", name: "Hover Cart", icon: "🛸", seg: "#2fe6c8", color: "#2fe6c8",
-      desc: "Round hover-disc: near-instant turning and quick braking for pinpoint control. Mk2 adds blazing acceleration and a higher top speed.",
+      desc: "Round hover-disc: near-instant turning and quick braking for pinpoint control. Terrible rammer — half ram damage and it ricochets off ships it hits. Mk2 adds blazing acceleration and a higher top speed.",
       // turn rate is already maxed by the hull — a +turn shop item would be wasted, so hide it
       exclude: ["turn"],
-      apply(st) { st.turn *= 8; st.brakeDrag = 4; },
+      ricochet: 0.75,   // bounces off enemies, keeping 75% of its speed
+      apply(st) { st.turn *= 8; st.brakeDrag = 4; st.ramDmgMul = 0.5; },
       // Mk2: upside only — snappier turn/brake PLUS much faster accel and a higher top speed
       upgrade(st) { st.turn *= 2; st.brakeDrag += 2; st.thrust *= 2; st.moveSpeed *= 1.4; },
       draw(ctx, r, inv, up) {
