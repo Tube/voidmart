@@ -227,28 +227,49 @@
        Am–F–C–G over 4 bars at 112 BPM. Intensity auto-tracks game state:
        menu = dreamy (no drums), play = full groove, boss = +driving lead/hats.
        ============================================================ */
-    _CHORDS: [
-      { root: 45, tones: [45, 48, 52] },  // Am
-      { root: 41, tones: [41, 45, 48] },  // F
-      { root: 48, tones: [48, 52, 55] },  // C
-      { root: 43, tones: [43, 47, 50] },  // G
+    // chord library + rotating progressions/leads (all in A-minor so any lead fits any progression)
+    _CH: {
+      Am: { root: 45, t: [45, 48, 52] }, F: { root: 41, t: [41, 45, 48] }, C: { root: 48, t: [48, 52, 55] },
+      G: { root: 43, t: [43, 47, 50] }, Dm: { root: 50, t: [50, 53, 57] }, Em: { root: 52, t: [52, 55, 59] }, E: { root: 52, t: [52, 56, 59] },
+    },
+    _PROGS: [
+      ["Am", "F", "C", "G"],
+      ["Am", "G", "F", "E"],
+      ["C", "G", "Am", "F"],
+      ["Dm", "Am", "Em", "G"],
     ],
-    _LEAD: [69, 72, 71, 69,  69, 72, 69, 65,  67, 64, 67, 72,  74, 71, 67, 62],   // one note per beat
-    _mVol() { return this._mMode === "boss" ? 0.48 : this._mMode === "menu" ? 0.3 : 0.4; },
+    _LEADS: [
+      [69, 72, 71, 69, 69, 72, 69, 65, 67, 64, 67, 72, 74, 71, 67, 62],
+      [76, 74, 72, 69, 72, 69, 65, 64, 67, 69, 72, 76, 74, 72, 71, 67],
+      [null, 69, 72, 74, null, 72, 69, 67, null, 64, 67, 72, 71, 69, 67, null],
+    ],
+    _mVol() { return this._mMode === "boss" ? 0.44 : this._mMode === "menu" ? 0.34 : 0.4; },
     _autoMode() {
       const g = TD.Game;
       if (!g || g.state === "menu" || g.state === "over") return "menu";
       return g.bossActive ? "boss" : "play";
     },
+    // smooth per-layer intensity targets for the current mood (drums, lead, boss-hats)
+    _mTargets() {
+      const m = this._mMode;
+      return m === "menu" ? { d: 0, l: 0, h: 0 } : m === "boss" ? { d: 1, l: 1, h: 1 } : { d: 1, l: 0.8, h: 0 };
+    },
     startMusic() {
       if (!this.ctx || !this.musicGain || this._mOn) return;
-      this._mOn = true; this._mMode = this._autoMode(); this._mStep = 0;
+      this._mOn = true; this._mMode = this._autoMode(); this._mStep = 0; this._mPhrase = 0;
       this._mNextT = this.now() + 0.08;
+      const t0 = this._mTargets();
+      this._mIntD = t0.d; this._mIntL = t0.l; this._mIntH = t0.h;   // start already settled for the opening mood
       this.musicGain.gain.setTargetAtTime(this._mVol(), this.now(), 0.6);
       const loop = () => {
         if (!this._mOn) return;
         const m = this._autoMode();
-        if (m !== this._mMode) { this._mMode = m; this.musicGain.gain.setTargetAtTime(this._mVol(), this.now(), 0.4); }
+        if (m !== this._mMode) { this._mMode = m; this.musicGain.gain.setTargetAtTime(this._mVol(), this.now(), 0.6); }
+        // ease layer intensities toward the mood's target (≈1.5s) so mood shifts are seamless, not hard cuts
+        const tg = this._mTargets();
+        this._mIntD += (tg.d - this._mIntD) * 0.05;
+        this._mIntL += (tg.l - this._mIntL) * 0.05;
+        this._mIntH += (tg.h - this._mIntH) * 0.05;
         this._mSchedule();
         this._mTimer = setTimeout(loop, 25);
       };
@@ -264,7 +285,8 @@
       if (this._mNextT < this.now() - 0.2) this._mNextT = this.now() + 0.05;   // resync after any tab throttle
       while (this._mNextT < this.now() + 0.12) {
         this._mStepVoices(this._mStep, this._mNextT);
-        this._mNextT += sp16; this._mStep = (this._mStep + 1) % 64;
+        this._mNextT += sp16; this._mStep++;
+        if (this._mStep >= 64) { this._mStep = 0; this._mPhrase = (this._mPhrase + 1) % 1000; }   // advance the song
       }
     },
     // pitched music voice (midi in), routed through the music submix
@@ -297,23 +319,36 @@
       src.start(t); src.stop(t + dur + 0.03);
     },
     _mStepVoices(step, t) {
-      const mode = this._mMode, bar = Math.floor(step / 16) % 4, b16 = step % 16, CH = this._CHORDS[bar];
-      // pad — soft sustained chord at the top of each bar
-      if (b16 === 0) for (const m of CH.tones) this._mt(t, m + 12, 1.9, "sawtooth", 0.035, { atk: 0.08, space: 0.35, lp: 1600 });
-      // bass — pulsing root (8ths in play/boss, quarters in menu)
-      const bassEvery = mode === "menu" ? 4 : 2;
-      if (b16 % bassEvery === 0) this._mt(t, CH.root, mode === "menu" ? 0.5 : 0.22, "sawtooth", b16 % 4 === 0 ? 0.15 : 0.1, { lp: 700, atk: 0.006 });
-      // arp — sixteenth chord tones an octave up (brighter on the back half of each bar)
-      const a = CH.tones[step % CH.tones.length] + 12 + (b16 % 8 >= 4 ? 12 : 0);
-      this._mt(t, a, 0.12, "square", mode === "menu" ? 0.04 : 0.05, { space: 0.3 });
-      // drums (play/boss only)
-      if (mode !== "menu") {
-        if (b16 % 4 === 0) this._mt(t, 47, 0.18, "sine", 0.26, { to: 28, atk: 0.004 });             // kick (4-on-floor)
-        if (b16 === 4 || b16 === 12) { this._mn(t, 0.16, "bandpass", 1800, 0.14, 1.2); this._mt(t, 52, 0.08, "triangle", 0.06); }  // snare
-        const hatEvery = mode === "boss" ? 1 : 2;
-        if (b16 % hatEvery === 0) this._mn(t, 0.03, "highpass", 8000, b16 % 4 === 2 ? 0.06 : 0.035);   // hats
-        // lead — catchy motif on the beats
-        if (b16 % 4 === 0) { const ld = this._LEAD[bar * 4 + b16 / 4]; if (ld) this._mt(t, ld, mode === "boss" ? 0.34 : 0.28, "triangle", mode === "boss" ? 0.11 : 0.075, { space: 0.4, atk: 0.012 }); }
+      const phrase = this._mPhrase || 0, bar = Math.floor(step / 16) % 4, b16 = step % 16;
+      const prog = this._PROGS[phrase % this._PROGS.length];
+      const CH = this._CH[prog[bar]];
+      const D = this._mIntD || 0, L = this._mIntL || 0, H = this._mIntH || 0;   // smooth layer intensities (0..1)
+      const menuish = D < 0.5;   // bass plays sparser while drums are absent (menu)
+      // pad — soft sustained chord at the top of each bar (always)
+      if (b16 === 0) for (const m of CH.t) this._mt(t, m + 12, 1.9, "sawtooth", 0.035, { atk: 0.08, space: 0.35, lp: 1600 });
+      // bass — root pulse: quarters when calm, eighths once the groove is in
+      const bassEvery = menuish ? 4 : 2;
+      if (b16 % bassEvery === 0) this._mt(t, CH.root, menuish ? 0.5 : 0.22, "sawtooth", b16 % 4 === 0 ? 0.15 : 0.1, { lp: 700, atk: 0.006 });
+      // arp — sixteenths; direction alternates per phrase for variety
+      const len = CH.t.length;
+      let idx;
+      if (phrase % 2 === 0) idx = step % len;
+      else { const c = 2 * len - 2, p = step % c; idx = p < len ? p : c - p; }   // up-down
+      this._mt(t, CH.t[idx] + 12 + (b16 % 8 >= 4 ? 12 : 0), 0.12, "square", 0.05, { space: 0.3 });
+      // drums — faded in/out by intensity D (no hard cuts)
+      if (D > 0.02) {
+        if (b16 % 4 === 0) this._mt(t, 47, 0.18, "sine", 0.26 * D, { to: 28, atk: 0.004 });               // kick
+        if (b16 === 4 || b16 === 12) { this._mn(t, 0.16, "bandpass", 1800, 0.14 * D, 1.2); this._mt(t, 52, 0.08, "triangle", 0.06 * D); } // snare
+        if (b16 % 2 === 0) this._mn(t, 0.03, "highpass", 8000, (b16 % 4 === 2 ? 0.06 : 0.035) * D);        // 8th hats
+        if (H > 0.05 && b16 % 2 === 1) this._mn(t, 0.025, "highpass", 8000, 0.03 * H * D);                  // boss 16th hats fade in
+        // drum fill on the last bar of every other phrase
+        if (phrase % 2 === 1 && bar === 3 && (b16 === 10 || b16 === 11 || b16 === 13 || b16 === 14 || b16 === 15))
+          this._mn(t, 0.07, "bandpass", 1700 + b16 * 30, 0.1 * D, 1.0);
+      }
+      // lead — catchy motif on the beats, faded by intensity L; brighter in boss
+      if (L > 0.05 && b16 % 4 === 0) {
+        const ld = this._LEADS[phrase % this._LEADS.length][bar * 4 + b16 / 4];
+        if (ld) this._mt(t, ld, 0.3, "triangle", (this._mMode === "boss" ? 0.11 : 0.085) * L, { space: 0.4, atk: 0.012 });
       }
     },
   };
