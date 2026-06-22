@@ -54,6 +54,13 @@
     return d;
   }
 
+  // total fan arc: each extra projectile widens it ~20°, so 10 shots span ~180°. Capped at a half-circle
+  // so shots never fire sideways/backwards. `base` is the weapon's own no-upgrade spread.
+  const SHOT_GAP = Math.PI / 9;
+  function projSpread(s, base) {
+    return Math.min(Math.PI, (base || 0) + s.stats.projAdd * SHOT_GAP) + s.stats.spread;
+  }
+
   /* ============== WEAPON CATALOG ============== */
   const WEAPONS = {
     /* default — Pea Shooter */
@@ -62,7 +69,7 @@
       fire(game, s) {
         const u = TD.Screen.unit;
         const n = 1 + s.stats.projAdd;
-        const spread = this.spread + s.stats.projAdd * 0.06 + s.stats.spread;
+        const spread = projSpread(s, 0);
         const speed = 640 * s.stats.projSpeed * u;
         fan(game, s, n, s.angle, n > 1 ? spread : 0, speed, (a, px, py, sp, crit) =>
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
@@ -78,7 +85,7 @@
         const u = TD.Screen.unit, t2 = s.weaponTier > 0;
         const n = (t2 ? 5 : 3) + s.stats.projAdd;        // PRO: wider 5-pellet fan
         const speed = 600 * s.stats.projSpeed * u;
-        fan(game, s, n, s.angle, this.spread + (t2 ? 0.12 : 0) + s.stats.spread, speed, (a, px, py, sp, crit) =>
+        fan(game, s, n, s.angle, projSpread(s, this.spread + (t2 ? 0.12 : 0)), speed, (a, px, py, sp, crit) =>
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
               r: 4.2 * u, dmg: dmgOf(s, 8, crit), life: 1.0, maxLife: 1.0,
               pierce: s.stats.pierce + (t2 ? 1 : 0), hits: new Set(), color: t2 ? "#d6ff8a" : "#b6ff6a", glow: t2 ? 13 : 11,
@@ -107,7 +114,7 @@
         const u = TD.Screen.unit, t2 = s.weaponTier > 0;
         const n = (t2 ? 2 : 1) + s.stats.projAdd;          // PRO: twin parallel beams, deeper pierce
         const speed = 980 * s.stats.projSpeed * u;
-        fan(game, s, n, s.angle, n > 1 ? 0.16 : 0, speed, (a, px, py, sp, crit) =>
+        fan(game, s, n, s.angle, n > 1 ? projSpread(s, 0.16) : 0, speed, (a, px, py, sp, crit) =>
           P({ x: px, y: py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, angle: a,
               r: 3 * u, dmg: dmgOf(s, 6, crit), life: 1.0, maxLife: 1.0,
               pierce: (t2 ? 2 : 1) + s.stats.pierce, hits: new Set(), color: t2 ? "#ff8af0" : "#ff5edb", glow: t2 ? 16 : 14,
@@ -122,7 +129,7 @@
         const n = 1 + s.stats.projAdd;                 // respect Buy-One-Get-One etc.
         const t2 = s.weaponTier > 0;                       // PRO: heavier slug, deeper pierce
         const speed = 1350 * s.stats.projSpeed * u;
-        const spread = n > 1 ? 0.12 + s.stats.spread : 0;
+        const spread = n > 1 ? projSpread(s, 0.12) : 0;
         const muzzle = (s.r + 6) * u;
         const px = s.x + Math.cos(s.angle) * muzzle, py = s.y + Math.sin(s.angle) * muzzle;
         for (let i = 0; i < n; i++) {

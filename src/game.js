@@ -1113,12 +1113,19 @@
             if (Math.hypot(o.x - p.x, o.y - p.y) < o.r + p.r) p.dead = true;
           }
         } else if (p.homing) {
-          if (!p.target || p.target.dead) p.target = TD.weaponNearest(this, p.x, p.y, 420 * S.unit);
-          if (p.target) {
-            const a = Math.atan2(p.target.y - p.y, p.target.x - p.x);
+          // steer toward the truly-nearest enemy in REAL space, re-checked each frame. Projectiles don't
+          // wrap, so we must NOT use wrap-distance (which would lock onto an enemy across the screen).
+          let best = null, bd = (440 * S.unit) * (440 * S.unit);
+          for (const e of this.enemies) {
+            if (e.dead) continue;
+            const dx = e.x - p.x, dy = e.y - p.y, d2 = dx * dx + dy * dy;
+            if (d2 < bd) { bd = d2; best = e; }
+          }
+          if (best) {
+            const a = Math.atan2(best.y - p.y, best.x - p.x);
             const sp = Math.hypot(p.vx, p.vy) || 1;
             const ca = Math.atan2(p.vy, p.vx);
-            const na = M.angToward(ca, a, (p.turnRate || 4) * dt);
+            const na = M.angToward(ca, a, (p.turnRate || 4) * dt);   // same turn rate as before — no extra curve
             p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp;
           }
         }
@@ -1295,9 +1302,12 @@
           // ricochet hulls (Hover Cart) bounce off enemies instead of plowing through — speed retained ×chassis.ricochet
           if (s.chassis && s.chassis.ricochet && (s.ricochetCD || 0) <= 0) {
             const n = Math.hypot(dl.dx, dl.dy) || 1;
-            const sp = Math.hypot(s.vx, s.vy) * s.chassis.ricochet;
-            s.vx = dl.dx / n * sp; s.vy = dl.dy / n * sp;        // dl points enemy→ship: shove back out
-            s.x += dl.dx / n * 6 * S.unit; s.y += dl.dy / n * 6 * S.unit;
+            const shipSp = Math.hypot(s.vx, s.vy), enemySp = Math.hypot(e.vx || 0, e.vy || 0);
+            let sp = shipSp * s.chassis.ricochet;
+            if (enemySp > shipSp) sp += (enemySp - shipSp) * 0.5;   // a faster attacker imparts an extra kick
+            sp = Math.max(sp, 90 * S.unit);                          // floor so a near-stationary cart pops free (no jitter)
+            s.vx = dl.dx / n * sp; s.vy = dl.dy / n * sp;            // dl points enemy→ship: shove back out
+            s.x += dl.dx / n * 8 * S.unit; s.y += dl.dy / n * 8 * S.unit;
             s.ricochetCD = 0.12;
           }
           // ram damage to enemy (reduced — or nullified — while the enemy is charging; ×hull ram multiplier)
