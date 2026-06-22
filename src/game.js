@@ -665,6 +665,7 @@
     // common −50%, miniboss −75%, boss −100% (immune). Keyed on the same charge
     // states that give them their heavier glow (charging / rolling / dash|charge mode).
     chargeCollisionResist(e) {
+      if (e.def.noChargeResist) return 1;   // opt-out: takes full ram damage even while charging
       const m = e.mode;
       const charging = e.charging > 0 || e.rolling > 0 ||
         m === "charge" || m === "dash" || m === "pounce" || m === "gallop";

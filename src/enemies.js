@@ -943,33 +943,77 @@
       },
     },
 
-    /* 🐎 HORSE — Hobby-Horse Hauler: long lane charges, hoof-kick trails */
+    /* 🐎 HORSE — Hobby-Horse Hauler: bull-style charge but FAST, homes slightly, no charge armor, kicks dust */
     z_horse: {
       name: "Hobby-Horse Hauler", color: "#c9863f", baseHp: 1250, contact: 30, score: 1850, coins: 92, isBoss: true,
+      noChargeResist: true,   // unlike the bull, takes full ram damage mid-charge
       banner: ["🐎 HOBBY-HORSE HAULER", "Gallops the aisles. Free delivery."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 30 * u; e.mode = "rear"; e.timer = 1.0; e.face = 0; e.t = 0; },
+      spawn(e) { const u = TD.Screen.unit; e.r = 30 * u; e.mode = "aim"; e.ang = M.rand(0, M.TAU); e.timer = 1.2; e.fire = 0; e.glow = 0; e.t = 0; },
       update(e, game, dt) {
         const u = TD.Screen.unit, W = TD.Screen.W, H = TD.Screen.H, d = dToShip(e, game); e.t += dt;
-        if (e.mode === "rear") {
-          e.vx *= 0.85; e.vy *= 0.85; e.face = M.angToward(e.face, chargeAng(e, game, 80), 2.5 * dt); e.timer -= dt;
-          if (e.timer <= 0) { e.mode = "gallop"; e.ga = e.face; e.timer = 1.4; }
-        } else {
-          steer(e, e.ga, 900 * u, dt, 540 * u); e.face = e.ga; e.timer -= dt;
-          // kick bullets out the back
-          if (Math.random() < 0.7) enemyShot(game, e.x, e.y, e.ga + Math.PI + M.rand(-0.3, 0.3), 220, 10, "#e8c08a", 5);
-          const m = e.r; if (e.timer <= 0 || e.x < m || e.x > W - m || e.y < m || e.y > H - m) { e.mode = "rear"; e.timer = M.rand(0.7, 1.2); game.shake(4); }
+        const ph = (e.hp / e.maxHp) < 0.4 ? 2 : (e.hp / e.maxHp) < 0.7 ? 1 : 0;
+        if (e.mode === "aim") {
+          e.vx *= 0.86; e.vy *= 0.86;
+          const ca = chargeAng(e, game, 70);
+          e.ang = M.angToward(e.ang, ca, (1.4 + ph * 0.2) * dt);   // lines up a touch quicker than the bull
+          e.glow = Math.min(1, e.glow + dt * 1.6);
+          e.fire -= dt;
+          if (e.fire <= 0) {
+            e.fire = 0.28 - ph * 0.03;
+            const back = e.ang + Math.PI, bx = e.x + Math.cos(back) * e.r, by = e.y + Math.sin(back) * e.r;
+            for (let k = -1; k <= 1; k++) enemyShot(game, bx, by, back + k * 0.18 + M.rand(-0.05, 0.05), 220, 10, "#e8c08a", 5);
+          }
+          e.timer -= dt;
+          if (e.timer <= 0 && Math.abs(M.angDiff(e.ang, ca)) < 0.16) { e.mode = "windup"; e.windup = 0.8; e.chargeAng = ca; e.glow = 1; game.shake(4); }
+        } else if (e.mode === "windup") {
+          // brief red-eye tell, still tracking, then commit
+          e.vx *= 0.86; e.vy *= 0.86;
+          e.chargeAng = chargeAng(e, game, 70);
+          e.ang = M.angToward(e.ang, e.chargeAng, 2.0 * dt);
+          e.windup -= dt;
+          if (e.windup <= 0) { e.mode = "gallop"; e.chargeT = 1.1 + ph * 0.25; game.shake(5); }
+        } else if (e.mode === "gallop") {
+          // slight homing curve toward the player, then a FAST charge (faster than the bull)
+          e.chargeAng = M.angToward(e.chargeAng, d.ang, (1.0 + ph * 0.2) * dt);
+          steer(e, e.chargeAng, 1500 * u, dt, (720 + ph * 80) * u);
+          e.ang = e.chargeAng;
+          // long dust cloud kicked up behind the gallop (visual only, like the Glitch Cube's trail)
+          if (game.particles.length < 158) {
+            const back = e.ang + Math.PI, perp = e.ang + Math.PI / 2;
+            for (let k = 0; k < 2; k++) {
+              const lat = M.rand(-0.7, 0.7), sp = M.rand(8, 55) * u, lf = M.rand(0.45, 0.95);
+              game.particles.push({
+                x: e.x + Math.cos(back) * e.r * 1.1 + Math.cos(perp) * lat * e.r,
+                y: e.y + Math.sin(back) * e.r * 1.1 + Math.sin(perp) * lat * e.r,
+                vx: Math.cos(back) * sp + Math.cos(perp) * lat * 30 * u - e.vx * 0.04,
+                vy: Math.sin(back) * sp + Math.sin(perp) * lat * 30 * u - e.vy * 0.04,
+                life: lf, maxLife: lf, r: M.rand(3, 8) * u, color: "#ccab7e", kind: "spark",
+              });
+            }
+          }
+          e.chargeT -= dt;
+          const m = e.r, hitWall = e.x < m || e.x > W - m || e.y < m || e.y > H - m;
+          if (e.chargeT <= 0 || hitWall) { e.mode = "recover"; e.timer = 0.45; e.glow = 0; if (hitWall) { game.shake(8); game.addPop(e.x, e.y, e.r * 3, "#e8c08a", { w: 4 }); } }
+        } else { // recover
+          e.vx *= 0.8; e.vy *= 0.8; e.timer -= dt;
+          if (e.timer <= 0) { e.mode = "aim"; e.timer = 0.4 + M.rand(0, 0.5); e.fire = 0; e.glow = 0; }
         }
-        e.ang = e.face;
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
-        const gallop = e.mode === "gallop";
-        ctx.beginPath(); ctx.moveTo(e.r, 0); ctx.lineTo(e.r * 0.2, e.r * 0.6); ctx.lineTo(-e.r, e.r * 0.5); ctx.lineTo(-e.r * 0.7, 0); ctx.lineTo(-e.r, -e.r * 0.5); ctx.lineTo(e.r * 0.2, -e.r * 0.6); ctx.closePath();
-        neon(ctx, gallop ? "#ffe0b0" : e.color, "rgba(201,134,63,.16)", 3);
-        // mane
-        ctx.strokeStyle = "#7a4a1a"; ctx.lineWidth = 3;
-        for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-e.r * 0.1 - i * e.r * 0.18, e.r * 0.4); ctx.lineTo(-e.r * 0.3 - i * e.r * 0.18, -e.r * 0.2); ctx.stroke(); }
-        ctx.beginPath(); ctx.arc(e.r * 0.6, -e.r * 0.18, e.r * 0.1, 0, M.TAU); ctx.fillStyle = "#fff"; ctx.fill();
+        const gallop = e.mode === "gallop", tell = e.mode === "windup" || gallop;
+        const rx = e.r * 1.7, ry = e.r * 0.6;   // long oval, spine along the facing (long) axis
+        ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, M.TAU);
+        neon(ctx, gallop ? "#ffe0b0" : e.color, "rgba(201,134,63,.16)", gallop ? 4 : 3);
+        // mane running along the back, trailing toward the rear
+        ctx.strokeStyle = "#7a4a1a"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(rx * 0.25 - i * rx * 0.16, -ry * 0.45); ctx.lineTo(rx * 0.08 - i * rx * 0.16, -ry * 1.05); ctx.stroke(); }
+        // tail tuft at the rear
+        ctx.beginPath(); ctx.moveTo(-rx * 0.98, 0); ctx.lineTo(-rx * 1.35, ry * 0.5); ctx.moveTo(-rx * 0.98, 0); ctx.lineTo(-rx * 1.35, -ry * 0.5); ctx.moveTo(-rx * 0.98, 0); ctx.lineTo(-rx * 1.4, 0); ctx.stroke(); ctx.lineCap = "butt";
+        // eyes near the front — glow red through the windup tell and the charge
+        ctx.fillStyle = tell ? "#ff2d2d" : "#fff3d0"; ctx.shadowColor = "#ff2d2d"; ctx.shadowBlur = tell ? 12 : 0;
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(rx * 0.66, s * ry * 0.42, e.r * 0.11, 0, M.TAU); ctx.fill(); }
+        ctx.shadowBlur = 0;
       },
     },
 
