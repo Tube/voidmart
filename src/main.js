@@ -22,8 +22,8 @@
     TD.UI.show("startScreen");
 
     const $ = (id) => document.getElementById(id);
-    // unlock audio on first gesture
-    const unlock = () => { TD.Audio.init(); };
+    // unlock audio on first gesture + kick off the music bed (mode auto-tracks game state)
+    const unlock = () => { TD.Audio.init(); TD.Audio.startMusic(); };
     document.addEventListener("pointerdown", unlock, { once: true });
 
     $("playBtn").addEventListener("click", () => { keepAwake(); TD.Audio.init(); TD.Audio.start(); TD.Game.start(); });

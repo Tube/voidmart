@@ -36,6 +36,10 @@
       spaceIn.connect(delay); delay.connect(lp); lp.connect(fb); fb.connect(delay);
       lp.connect(sg); sg.connect(master);
 
+      // dedicated music submix so the synthwave bed can be balanced/faded apart from SFX
+      const musicGain = (this.musicGain = ctx.createGain()); musicGain.gain.value = 0.0001;
+      musicGain.connect(master);
+
       // white-noise buffer (reused)
       const len = ctx.sampleRate * 1.0;
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -208,6 +212,7 @@
       this.setThrust(0);
       [523, 659, 784, 1047].forEach((f, i) =>
         this.tone({ freq: f, type: "triangle", dur: 0.2, gain: 0.12, at: i * 0.08, space: 0.3 }));
+      this.startMusic();   // ensure the loop is running (idempotent)
     },
     ui() { this.tone({ freq: 880, type: "square", dur: 0.05, gain: 0.08 }); },
     // low-hull alarm — a short descending two-tone whoop (game calls it on a cadence)
@@ -215,6 +220,101 @@
       if (!this.ok("klaxon", 250)) return;
       this.tone({ freq: 760, to: 470, type: "sawtooth", dur: 0.26, gain: 0.12, space: 0.12 });
       this.tone({ freq: 380, to: 235, type: "square", dur: 0.26, gain: 0.06 });
+    },
+
+    /* ============================================================
+       MUSIC — looping neon-synthwave bed, fully synthesized + scheduled.
+       Am–F–C–G over 4 bars at 112 BPM. Intensity auto-tracks game state:
+       menu = dreamy (no drums), play = full groove, boss = +driving lead/hats.
+       ============================================================ */
+    _CHORDS: [
+      { root: 45, tones: [45, 48, 52] },  // Am
+      { root: 41, tones: [41, 45, 48] },  // F
+      { root: 48, tones: [48, 52, 55] },  // C
+      { root: 43, tones: [43, 47, 50] },  // G
+    ],
+    _LEAD: [69, 72, 71, 69,  69, 72, 69, 65,  67, 64, 67, 72,  74, 71, 67, 62],   // one note per beat
+    _mVol() { return this._mMode === "boss" ? 0.48 : this._mMode === "menu" ? 0.3 : 0.4; },
+    _autoMode() {
+      const g = TD.Game;
+      if (!g || g.state === "menu" || g.state === "over") return "menu";
+      return g.bossActive ? "boss" : "play";
+    },
+    startMusic() {
+      if (!this.ctx || !this.musicGain || this._mOn) return;
+      this._mOn = true; this._mMode = this._autoMode(); this._mStep = 0;
+      this._mNextT = this.now() + 0.08;
+      this.musicGain.gain.setTargetAtTime(this._mVol(), this.now(), 0.6);
+      const loop = () => {
+        if (!this._mOn) return;
+        const m = this._autoMode();
+        if (m !== this._mMode) { this._mMode = m; this.musicGain.gain.setTargetAtTime(this._mVol(), this.now(), 0.4); }
+        this._mSchedule();
+        this._mTimer = setTimeout(loop, 25);
+      };
+      loop();
+    },
+    stopMusic() {
+      this._mOn = false;
+      if (this._mTimer) { clearTimeout(this._mTimer); this._mTimer = null; }
+      if (this.musicGain) this.musicGain.gain.setTargetAtTime(0.0001, this.now(), 0.4);
+    },
+    _mSchedule() {
+      const sp16 = (60 / 112) / 4;                                  // sixteenth-note grid
+      if (this._mNextT < this.now() - 0.2) this._mNextT = this.now() + 0.05;   // resync after any tab throttle
+      while (this._mNextT < this.now() + 0.12) {
+        this._mStepVoices(this._mStep, this._mNextT);
+        this._mNextT += sp16; this._mStep = (this._mStep + 1) % 64;
+      }
+    },
+    // pitched music voice (midi in), routed through the music submix
+    _mt(t, midi, dur, type, gain, opt) {
+      opt = opt || {};
+      const ctx = this.ctx;
+      const osc = ctx.createOscillator(); osc.type = type;
+      osc.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), t);
+      if (opt.to != null) osc.frequency.exponentialRampToValueAtTime(440 * Math.pow(2, (opt.to - 69) / 12), t + dur);
+      let node = osc;
+      if (opt.lp) { const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = opt.lp; osc.connect(lp); node = lp; }
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + (opt.atk || 0.01));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      node.connect(g); g.connect(this.musicGain);
+      if (opt.space) { const s = ctx.createGain(); s.gain.value = opt.space; g.connect(s); s.connect(this.spaceIn); }
+      osc.start(t); osc.stop(t + dur + 0.05);
+    },
+    // percussion (filtered noise burst) on the music submix
+    _mn(t, dur, filter, freq, gain, Q) {
+      const ctx = this.ctx;
+      const src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+      const fl = ctx.createBiquadFilter(); fl.type = filter; fl.frequency.value = freq; if (Q) fl.Q.value = Q;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(fl); fl.connect(g); g.connect(this.musicGain);
+      src.start(t); src.stop(t + dur + 0.03);
+    },
+    _mStepVoices(step, t) {
+      const mode = this._mMode, bar = Math.floor(step / 16) % 4, b16 = step % 16, CH = this._CHORDS[bar];
+      // pad — soft sustained chord at the top of each bar
+      if (b16 === 0) for (const m of CH.tones) this._mt(t, m + 12, 1.9, "sawtooth", 0.035, { atk: 0.08, space: 0.35, lp: 1600 });
+      // bass — pulsing root (8ths in play/boss, quarters in menu)
+      const bassEvery = mode === "menu" ? 4 : 2;
+      if (b16 % bassEvery === 0) this._mt(t, CH.root, mode === "menu" ? 0.5 : 0.22, "sawtooth", b16 % 4 === 0 ? 0.15 : 0.1, { lp: 700, atk: 0.006 });
+      // arp — sixteenth chord tones an octave up (brighter on the back half of each bar)
+      const a = CH.tones[step % CH.tones.length] + 12 + (b16 % 8 >= 4 ? 12 : 0);
+      this._mt(t, a, 0.12, "square", mode === "menu" ? 0.04 : 0.05, { space: 0.3 });
+      // drums (play/boss only)
+      if (mode !== "menu") {
+        if (b16 % 4 === 0) this._mt(t, 47, 0.18, "sine", 0.26, { to: 28, atk: 0.004 });             // kick (4-on-floor)
+        if (b16 === 4 || b16 === 12) { this._mn(t, 0.16, "bandpass", 1800, 0.14, 1.2); this._mt(t, 52, 0.08, "triangle", 0.06); }  // snare
+        const hatEvery = mode === "boss" ? 1 : 2;
+        if (b16 % hatEvery === 0) this._mn(t, 0.03, "highpass", 8000, b16 % 4 === 2 ? 0.06 : 0.035);   // hats
+        // lead — catchy motif on the beats
+        if (b16 % 4 === 0) { const ld = this._LEAD[bar * 4 + b16 / 4]; if (ld) this._mt(t, ld, mode === "boss" ? 0.34 : 0.28, "triangle", mode === "boss" ? 0.11 : 0.075, { space: 0.4, atk: 0.012 }); }
+      }
     },
   };
 
