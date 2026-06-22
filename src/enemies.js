@@ -38,17 +38,20 @@
     let lx = e.x, ly = e.y;
     for (let i = 0; i < n; i++) {
       const s = seg[i];
+      const g = s.gap != null ? s.gap : gap;   // per-segment spacing keeps a tapering tail connected
       let dx = s.x - lx, dy = s.y - ly, d = Math.hypot(dx, dy);
       if (d < 1e-4) { dx = -Math.cos(e.ang); dy = -Math.sin(e.ang); d = 1; }  // fallback: behind the head
-      s.x = lx + dx / d * gap; s.y = ly + dy / d * gap;
+      s.x = lx + dx / d * g; s.y = ly + dy / d * g;
       lx = s.x; ly = s.y;
     }
   }
   // lay a fresh chain straight out behind the head (called from spawn so it starts as a tail)
   function initChain(e, gap) {
+    let lx = e.x, ly = e.y;
     for (let i = 0; i < e.seg.length; i++) {
-      e.seg[i].x = e.x - Math.cos(e.ang) * gap * (i + 1);
-      e.seg[i].y = e.y - Math.sin(e.ang) * gap * (i + 1);
+      const s = e.seg[i], g = s.gap != null ? s.gap : gap;
+      s.x = lx - Math.cos(e.ang) * g; s.y = ly - Math.sin(e.ang) * g;
+      lx = s.x; ly = s.y;
     }
   }
 
@@ -872,12 +875,16 @@
     z_dragon: {
       name: "Dragon-Brand Knockoff", color: "#ff3b5c", baseHp: 1600, contact: 32, score: 2400, coins: 120, isBoss: true, severTail: true,
       banner: ["🐉 DRAGON-BRAND KNOCKOFF", "As seen on a cart. Breathes fire."],
-      spawn(e) { const u = TD.Screen.unit; e.r = 40 * u; e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0;
+      spawn(e) { const u = TD.Screen.unit; const base = 40 * u; e.r = base * 0.5;   // head (+ eyes/horns/whiskers + hitbox) at half size
+        e.t = 0; e.breath = 2.5; e.sweep = 0; e.zoneT = 4; e.spiralA = 0;
         e.moveT = M.rand(2.5, 4.5); e.dashing = false; e.dest = null;
         const N = 24; e.seg = [];
-        for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: Math.max(1.2, e.r * 0.32 * (1 - i / (N + 3))) });
+        for (let i = 0; i < N; i++) e.seg.push({ x: e.x, y: e.y, r: Math.max(1.2, base * 0.32 * (1 - i / (N + 3))) });
         e.parts = e.seg;   // body collides — its higher contact makes the dragon hit harder than the wyrm
-        initChain(e, e.r * 0.42);   // lay the tail out behind the head
+        // space each segment by its own size so the tapering tail stays connected to the very tip
+        let prevR = e.r;
+        for (const s of e.seg) { s.gap = (prevR + s.r) * 0.7; prevR = s.r; }
+        initChain(e);   // lay the tail out behind the head using each segment's gap
       },
       update(e, game, dt) {
         const u = TD.Screen.unit, W = TD.Screen.W, H = TD.Screen.H, d = dToShip(e, game); e.t += dt;
