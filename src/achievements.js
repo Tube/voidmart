@@ -32,10 +32,11 @@
         const [icon, title] = HULL_ACH[id];
         this.DEFS.push({ id: "out_" + id, name: title, icon, rarity: "common", hull: id,
           desc: "End a run flying the " + b.name + "." });
-        this._hullIds.push("out_" + id);
+        // Store Brand can't be chosen by paid players, so it's NOT part of the completionist set
+        if (id !== "default") this._hullIds.push("out_" + id);
       }
       this.DEFS.push({ id: "out_all", name: "Everything Must Go", icon: "🏷️", rarity: "rare",
-        desc: "End a run in every hull in the catalog." });
+        desc: "End a run in every ship from the welcome wheel." });
       this.DEFS.push({ id: "bought_farm", name: "Bought the Farm", icon: "🚜", rarity: "epic",
         desc: "Bow out with 100,000+ points." });
     },
