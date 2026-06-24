@@ -23,6 +23,7 @@
     o.weight = o.weight == null ? 1 : o.weight;
     o.max = o.max == null ? 1 : o.max;
     o.dept = o.dept || "Add-ons";
+    o.door = /doorbuster/i.test(o.desc || "");   // the "Doorbuster!" deals → limited to one per game
     return o;
   }
 
@@ -166,13 +167,16 @@
         const def = BY_ID[id];
         if (def) deptInvest[def.dept] = (deptInvest[def.dept] || 0) + ship.mods[id];
       }
-      // legendary "Doorbuster" deals are a paid perk — excluded for free players
+      // legendary "Doorbuster" deals are a paid perk — excluded for free players.
       const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
+      // one Doorbuster per game: once any Doorbuster is owned, no more are offered this run
+      const ownsDoorbuster = LIST.some((u) => u.door && (ship.mods[u.id] || 0) > 0);
       const cands = [];
       for (const u of LIST) {
         const have = ship.mods[u.id] || 0;
         if (have >= u.max) continue;
-        if (u.rarity === "legendary" && !paid) continue;
+        if (u.rarity === "legendary" && !paid) continue;   // legendaries (incl. Doorbusters) are paid-only
+        if (u.door && ownsDoorbuster) continue;            // ...and only one Doorbuster per run
         // per-hull store exclusions (e.g. Hover Cart hides +turn — its turn is already maxed)
         if (ship.chassis && ship.chassis.exclude && ship.chassis.exclude.indexOf(u.id) !== -1) continue;
         if (u.prereq && !u.prereq(ship)) continue;
