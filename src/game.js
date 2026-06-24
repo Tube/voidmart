@@ -1173,7 +1173,7 @@
             const a = Math.atan2(best.y - p.y, best.x - p.x);
             const sp = Math.hypot(p.vx, p.vy) || 1;
             const ca = Math.atan2(p.vy, p.vx);
-            const na = M.angToward(ca, a, (p.turnRate || 4) * dt);   // same turn rate as before — no extra curve
+            const na = M.angToward(ca, a, (p.turnRate || 2.4) * dt);   // homing turn rate (per-projectile)
             p.vx = Math.cos(na) * sp; p.vy = Math.sin(na) * sp;
           }
         }

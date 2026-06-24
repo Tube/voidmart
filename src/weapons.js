@@ -14,7 +14,7 @@
       x: 0, y: 0, vx: 0, vy: 0, r: 4, dmg: 10,
       life: 1.2, maxLife: 1.2, pierce: 0, hits: null, dead: false,
       color: "#37f0ff", glow: 14, kind: "bolt", angle: 0,
-      homing: 0, turnRate: 4, target: null, spin: 0, crit: false,
+      homing: 0, turnRate: 2.4, target: null, spin: 0, crit: false,   // Heat-Seeker homing strength (gentle ~60% curve; missiles set their own)
       ret: false, retT: 0, owner: null, splash: 0,
     }, o);
   }
@@ -139,7 +139,7 @@
           game.projectiles.push(P({ x: px, y: py, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, angle: a,
             r: (t2 ? 8.5 : 7) * u, dmg: dmgOf(s, t2 ? 82 : 58, crit), life: 1.4, maxLife: 1.4,
             pierce: (t2 ? 7 : 4) + s.stats.pierce, hits: new Set(), color: t2 ? "#b18cff" : "#9d6bff", glow: t2 ? 26 : 22,
-            kind: "slug", crit, homing: s.stats.homing, turnRate: 3, splash: s.stats.splash }));
+            kind: "slug", crit, homing: s.stats.homing, turnRate: 1.8, splash: s.stats.splash }));
         }
         game.flashMuzzle(px, py, s.angle, "#9d6bff", 1.8 + n * 0.2);
         game.shake(4);
