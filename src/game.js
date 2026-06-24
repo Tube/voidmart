@@ -998,12 +998,20 @@
       let thrusting = false;
       if (TD.Input.active) {
         const tx = TD.Input.x, ty = TD.Input.y;
-        const dl = M.wrapDelta(s.x, s.y, tx, ty, S.W, S.H);
-        const target = Math.atan2(dl.dy, dl.dx);
+        // Bias toward crossing the screen directly instead of wrapping around the edge: only treat the
+        // wrap path as "shorter" once the pointer is past 0.625× the screen away on an axis (was 0.5×) —
+        // a ~25% wider on-screen-preference range, so steering to the far side no longer flips you out the
+        // near edge. (Uses the ship's own biased delta; the shared M.wrapDelta the rest of the game relies on is untouched.)
+        let ddx = tx - s.x, ddy = ty - s.y;
+        const wx = S.W * 0.625, wy = S.H * 0.625;
+        if (ddx > wx) ddx -= S.W; else if (ddx < -wx) ddx += S.W;
+        if (ddy > wy) ddy -= S.H; else if (ddy < -wy) ddy += S.H;
+        const target = Math.atan2(ddy, ddx);
+        const tdist = Math.hypot(ddx, ddy);
         const turn = 7.2 * st.turn * beamTurn * dt;
         s.angle = M.angToward(s.angle, target, turn);
         // thrust toward facing if pointer isn't basically on top of the ship
-        if (dl.d > s.r * 0.8) {
+        if (tdist > s.r * 0.8) {
           thrusting = true;
           const f = 780 * st.thrust * S.unit * moveBoost * beamMove;
           s.vx += Math.cos(s.angle) * f * dt;
