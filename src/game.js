@@ -566,10 +566,11 @@
     },
     // a big, coinless neon blast for boss deaths (reuses the deathFx system).
     bossExplosion(x, y, R, color) {
-      const u = S.unit;
+      const u = S.unit, fx = this.fxScale || 1;   // scale the whole blast by the device quality tier
       this.deathFx = this.deathFx || [];
       const neon = ["#37f0ff", "#ff2d6a", "#ffd23b", "#7af06a", "#c79bff", "#ff8a2b"];
-      for (let i = 0; i < 9; i++) {
+      const clusters = Math.max(2, Math.round(5 * fx));
+      for (let i = 0; i < clusters; i++) {
         const a = M.rand(0, M.TAU), rr = M.rand(0, R * 0.7);
         const ox = x + Math.cos(a) * rr, oy = y + Math.sin(a) * rr;
         const col = (color && i % 3 === 0) ? color : neon[i % neon.length];
@@ -582,12 +583,14 @@
       }
       this.deathFx.push({ kind: "dring", x, y, r: R * 0.6, vr: 680 * u, rot: 0, rotSpeed: 2.2,
         life: 0.7, maxLife: 0.7, color: "#ffffff", lw: 5 * u, arcs: 1, gap: 0 });
-      for (let i = 0; i < 110; i++) {
+      const sparks = Math.round(46 * fx);
+      for (let i = 0; i < sparks; i++) {
         const a = M.rand(0, M.TAU), sp = M.rand(140, 720) * u;
         this.deathFx.push({ kind: "dspark", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
           life: M.rand(0.5, 1.3), maxLife: 1.3, r: M.rand(1.6, 4) * u, color: neon[(Math.random() * neon.length) | 0] });
       }
-      for (let i = 0; i < 14; i++) {
+      const shards = Math.round(9 * fx);
+      for (let i = 0; i < shards; i++) {
         const a = M.rand(0, M.TAU), sp = M.rand(90, 340) * u;
         this.deathFx.push({ kind: "dshard", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
           life: M.rand(0.9, 1.5), maxLife: 1.5, r: M.rand(5, 10) * u,
@@ -1195,7 +1198,14 @@
     },
 
     updateEnemyShots(dt) {
+      const s = this.ship;
       for (const b of this.enemyShots) {
+        if (b.homing && s.hull > 0) {   // homing enemy missiles curve toward the ship at their turnRate
+          const a = Math.atan2(s.y - b.y, s.x - b.x);
+          const sp = Math.hypot(b.vx, b.vy) || 1, ca = Math.atan2(b.vy, b.vx);
+          const na = M.angToward(ca, a, (b.turnRate || 2.2) * dt);
+          b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp;
+        }
         b.x += b.vx * dt; b.y += b.vy * dt;
         if (b.bounce > 0) {
           // ricochet off screen edges (monkey bananas), losing a bounce each time
@@ -1520,9 +1530,14 @@
             for (let i = 0; i < f.arcs; i++) { const a0 = i * step; ctx.beginPath(); ctx.arc(0, 0, f.r, a0, a0 + seg); ctx.stroke(); } }
           ctx.restore();
         } else if (f.kind === "dspark") {
-          ctx.globalAlpha = k; ctx.strokeStyle = f.color; ctx.lineWidth = f.r;
-          ctx.lineCap = "round"; ctx.shadowColor = f.color; ctx.shadowBlur = 10;
-          ctx.beginPath(); ctx.moveTo(f.x - f.vx * 0.03, f.y - f.vy * 0.03); ctx.lineTo(f.x, f.y); ctx.stroke();
+          // cheap neon: additive streak with a soft wide underglow — NO shadowBlur (the slow part).
+          // 'lighter' compositing makes the overlapping passes bloom, so it still reads as glowing energy.
+          ctx.shadowBlur = 0; ctx.lineCap = "round"; ctx.strokeStyle = f.color;
+          const x0 = f.x - f.vx * 0.035, y0 = f.y - f.vy * 0.035;
+          ctx.globalAlpha = k * 0.4; ctx.lineWidth = f.r * 2.4;
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(f.x, f.y); ctx.stroke();
+          ctx.globalAlpha = k; ctx.lineWidth = f.r;
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(f.x, f.y); ctx.stroke();
         } else if (f.kind === "dshard") {
           ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.globalAlpha = k;
           ctx.fillStyle = f.color; ctx.shadowColor = f.color; ctx.shadowBlur = 12;

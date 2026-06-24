@@ -19,13 +19,16 @@
     const s = game.ship, dx = s.x - e.x, dy = s.y - e.y;
     return { dx, dy, d: Math.hypot(dx, dy), ang: Math.atan2(dy, dx) };
   }
-  function enemyShot(game, x, y, ang, speed, dmg, color, r) {
+  function enemyShot(game, x, y, ang, speed, dmg, color, r, opts) {
     const u = TD.Screen.unit;
     if (game.enemyShots.length > 260) return;
-    game.enemyShots.push({
+    const o = {
       x, y, vx: Math.cos(ang) * speed * u * 0.75, vy: Math.sin(ang) * speed * u * 0.75,
       r: (r || 5) * u, dmg: dmg * (game.threat ? game.threat() : 1), life: 4.2, color: color || "#ff5a7a", glow: 10,
-    });
+    };
+    if (opts) Object.assign(o, opts);   // optional extras (e.g. homing missiles: { homing:1, turnRate, life })
+    game.enemyShots.push(o);
+    return o;
   }
   // Tractor beam: latches onto the ship within range — slows movement (accumulates on ship._beams,
   // applied in updateShip), rapidly drains the field + blocks its regen, and (if opt.hullDrain set)
@@ -34,7 +37,9 @@
     const u = TD.Screen.unit, s = game.ship;
     const dd = Math.hypot(s.x - e.x, s.y - e.y);   // REAL screen distance — beam only when actually close (and the drawn line stays short)
     e.beamColor = opt.color;
-    e.beamOn = dd < (opt.range || 300) * u && s.hull > 0 && s.invuln <= 0 && game.state === "play";
+    // sticky latch (hysteresis): once connected, hold the beam through strafing until clearly out of range — continuous pin, no flicker
+    const lim = (opt.range || 300) * u * (e.beamOn ? 1.4 : 1);
+    e.beamOn = dd < lim && s.hull > 0 && s.invuln <= 0 && game.state === "play";
     if (!e.beamOn) return;
     s._beams = (s._beams || 0) + 1;             // movement-lock accumulator
     s.hitTimer = 0;                              // hold the field down (no regen while beamed)
@@ -329,6 +334,42 @@
         neon(ctx, e.color, e.flash > 0 ? "rgba(255,122,184,.5)" : "rgba(255,77,157,.14)", 2.4);
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(e.r * 1.5, 0);
         ctx.strokeStyle = "#ffd0e6"; ctx.lineWidth = 2; ctx.stroke();
+      },
+    },
+
+    /* Layaway Launcher — long-range cousin of the sniper: hangs WAY back and lobs slow homing missiles.
+       Shows up alongside the tractor drones in the later levels (and in growing numbers). */
+    missile_sniper: {
+      name: "Layaway Launcher", color: "#b06bff", baseHp: 40, contact: 14, score: 95, coins: 7,
+      spawn(e) { e.r = 14 * TD.Screen.unit; e.fire = M.rand(1.6, 3); },
+      update(e, game, dt) {
+        const u = TD.Screen.unit, d = dToShip(e, game);
+        const ideal = 420 * u;
+        if (d.d < ideal - 50) steer(e, d.ang + Math.PI, 200 * u, dt, 130 * u);       // too close → back off
+        else if (d.d > ideal + 70) steer(e, d.ang, 160 * u, dt, 120 * u);            // too far → close in
+        else { e.vx *= 0.96; e.vy *= 0.96; steer(e, d.ang + Math.PI / 2, 60 * u, dt, 100 * u); } // hold + light strafe
+        e.ang = d.ang;
+        e.fire -= dt;
+        if (e.fire <= 0 && d.d < 660 * u) {
+          e.fire = M.rand(2.4, 3.6);
+          const a = d.ang, mx = e.x + Math.cos(a) * e.r * 1.7, my = e.y + Math.sin(a) * e.r * 1.7;
+          enemyShot(game, mx, my, a, 260, 12, "#c79bff", 7, { homing: 1, turnRate: 2.2, life: 7, glow: 16 });
+          e.flash = 0.16; game.shake(2);
+        }
+        if (e.flash > 0) e.flash -= dt;
+      },
+      draw(e, ctx) {
+        ctx.rotate(e.ang);
+        poly(ctx, 4, e.r, 0);
+        neon(ctx, e.color, e.flash > 0 ? "rgba(199,155,255,.55)" : "rgba(176,107,255,.16)", 2.6);
+        // thick launcher barrel
+        ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(e.r * 1.7, 0);
+        ctx.strokeStyle = "#d9c0ff"; ctx.lineWidth = 5; ctx.stroke();
+        ctx.lineCap = "butt";
+        // glowing muzzle
+        ctx.beginPath(); ctx.arc(e.r * 1.7, 0, e.r * 0.24, 0, M.TAU);
+        ctx.fillStyle = e.flash > 0 ? "#ffffff" : "#b06bff"; ctx.fill();
       },
     },
 
@@ -1313,6 +1354,8 @@
       if (level >= 5) p.push(["clearance", 3]);
       if (level >= 6) p.push(["sniper", 3]);
       if (level >= 8) p.push(["bulwark", 2]);
+      // Layaway Launcher arrives in the later levels and grows more common the deeper you go
+      if (level >= 9) p.push(["missile_sniper", Math.min(7, 1 + (level - 9) * 0.5)]);
       return p;
     },
     weightedPick(pool) {
