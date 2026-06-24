@@ -14,6 +14,11 @@
     dl.ang = Math.atan2(dl.dy, dl.dx);
     return dl;
   }
+  // REAL on-screen distance (no wrap-around) — for units that should behave in screen space
+  function dToShipReal(e, game) {
+    const s = game.ship, dx = s.x - e.x, dy = s.y - e.y;
+    return { dx, dy, d: Math.hypot(dx, dy), ang: Math.atan2(dy, dx) };
+  }
   function enemyShot(game, x, y, ang, speed, dmg, color, r) {
     const u = TD.Screen.unit;
     if (game.enemyShots.length > 260) return;
@@ -26,9 +31,10 @@
   // applied in updateShip), rapidly drains the field + blocks its regen, and (if opt.hullDrain set)
   // gnaws the hull once the field is gone. Sets e.beamOn / e.beamColor for the renderer.
   function tractorBeam(e, game, dt, opt) {
-    const u = TD.Screen.unit, s = game.ship, d = dToShip(e, game);
+    const u = TD.Screen.unit, s = game.ship;
+    const dd = Math.hypot(s.x - e.x, s.y - e.y);   // REAL screen distance — beam only when actually close (and the drawn line stays short)
     e.beamColor = opt.color;
-    e.beamOn = d.d < (opt.range || 300) * u && s.hull > 0 && s.invuln <= 0 && game.state === "play";
+    e.beamOn = dd < (opt.range || 300) * u && s.hull > 0 && s.invuln <= 0 && game.state === "play";
     if (!e.beamOn) return;
     s._beams = (s._beams || 0) + 1;             // movement-lock accumulator
     s.hitTimer = 0;                              // hold the field down (no regen while beamed)
@@ -177,10 +183,10 @@
     /* Clearance Drone — yellow glass strafer (modeled on the Rooster's comb drones):
        holds ~200px, sidesteps, spits yellow bullets, pops in a single hit. */
     clearance: {
-      name: "Clearance Drone", color: "#ffd23b", baseHp: 1, fixedHp: 1, contact: 12, score: 30, coins: 2,
+      name: "Clearance Drone", color: "#ffd23b", baseHp: 1, fixedHp: 1, contact: 12, score: 30, coins: 2, screenBound: true,
       spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.color = "#ffd23b"; e.t = 0; e.fire = M.rand(0.4, 0.9); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
       update(e, game, dt) {
-        const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
+        const u = TD.Screen.unit, d = dToShipReal(e, game); e.t += dt;   // screen-space chase (no wrap)
         const ideal = 170 * u;   // hover inside even buckshot's reach (so it's killable in screen space)
         const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);
         e.flip -= dt; if (e.flip <= 0) { e.flip = M.rand(1.4, 2.6); e.sdir *= -1; }
@@ -1184,10 +1190,10 @@
        sidesteps laterally, spits red bullets. Killing it sends it back to his head.
        Boss-spawned only (never in the wave director pool). */
     z_rooster_comb: {
-      name: "Comb Drone", color: "#ff2d4f", baseHp: 130, contact: 14, score: 60, coins: 8,
+      name: "Comb Drone", color: "#ff2d4f", baseHp: 130, contact: 14, score: 60, coins: 8, screenBound: true,
       spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.t = 0; e.fire = M.rand(0.3, 0.7); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
       update(e, game, dt) {
-        const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
+        const u = TD.Screen.unit, d = dToShipReal(e, game); e.t += dt;   // screen-space chase (no wrap)
         const ideal = 170 * u;   // hover inside even buckshot's reach (so it's killable in screen space)
         // hold ~200px: radial term approaches/retreats, lateral term strafes sideways
         const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);

@@ -1124,8 +1124,8 @@
       for (const e of this.enemies) {
         if (e.dead) continue;
         e.def.update(e, this, dt);
-        if (e.def.isBoss || e.def.isMini) {
-          e.x += e.vx * dt; e.y += e.vy * dt;        // big units move at full speed
+        if (e.def.isBoss || e.def.isMini || e.def.screenBound) {
+          e.x += e.vx * dt; e.y += e.vy * dt;        // big units (+ tractor drones) move at full speed
           const m = e.r;                              // and stay on-screen instead of wrapping
           if (e.x < m) { e.x = m; if (e.vx < 0) e.vx = -e.vx * 0.5; }
           else if (e.x > S.W - m) { e.x = S.W - m; if (e.vx > 0) e.vx = -e.vx * 0.5; }
