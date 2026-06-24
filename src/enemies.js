@@ -181,7 +181,7 @@
       spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.color = "#ffd23b"; e.t = 0; e.fire = M.rand(0.4, 0.9); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
-        const ideal = 200 * u;
+        const ideal = 170 * u;   // hover inside even buckshot's reach (so it's killable in screen space)
         const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);
         e.flip -= dt; if (e.flip <= 0) { e.flip = M.rand(1.4, 2.6); e.sdir *= -1; }
         const latAng = d.ang + Math.PI / 2 * e.sdir;
@@ -191,7 +191,7 @@
         e.vx *= 0.92; e.vy *= 0.92;
         e.ang = Math.atan2(e.vy, e.vx);
         // BLUE tractor beam: slows you + rapidly drains the field (no regen while latched on)
-        tractorBeam(e, game, dt, { color: "#37b6ff", range: 300, fieldDrain: 85 });
+        tractorBeam(e, game, dt, { color: "#37b6ff", range: 210, fieldDrain: 85 });
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);
@@ -1188,7 +1188,7 @@
       spawn(e) { const u = TD.Screen.unit; e.r = 9 * u; e.t = 0; e.fire = M.rand(0.3, 0.7); e.sdir = M.chance(0.5) ? 1 : -1; e.flip = M.rand(1.4, 2.4); },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
-        const ideal = 200 * u;
+        const ideal = 170 * u;   // hover inside even buckshot's reach (so it's killable in screen space)
         // hold ~200px: radial term approaches/retreats, lateral term strafes sideways
         const err = M.clamp((d.d - ideal) / (90 * u), -1, 1);
         e.flip -= dt; if (e.flip <= 0) { e.flip = M.rand(1.4, 2.6); e.sdir *= -1; }
@@ -1199,7 +1199,7 @@
         e.vx *= 0.92; e.vy *= 0.92;
         e.ang = Math.atan2(e.vy, e.vx);
         // RED tractor beam: slows you + drains the field, then gnaws the hull once the field is gone
-        tractorBeam(e, game, dt, { color: "#ff3b3b", range: 300, fieldDrain: 85, hullDrain: 12 });
+        tractorBeam(e, game, dt, { color: "#ff3b3b", range: 210, fieldDrain: 85, hullDrain: 12 });
       },
       draw(e, ctx) {
         ctx.rotate(e.ang);

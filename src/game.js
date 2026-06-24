@@ -346,7 +346,11 @@
     // Enemy bullet-damage multiplier. Grows ~sqrt of the HP difficulty so late-game shots
     // actually threaten a big field/hull instead of being facetanked (HP alone wasn't enough).
     threat() { return Math.sqrt(this.difficulty()); },
-    needFor(lvl) { return Math.round(8 + lvl * 5 + lvl * lvl * 1.15); },
+    // XP per level = one store visit (≈ one purchase). Quadratic early (unchanged pacing) + an
+    // exponential term that's negligible until it crosses the quadratic around lvl ~40 (the "knee"),
+    // then explodes — so the cost of further purchases outruns any income and the catalog can never
+    // be exhausted. 1.2^lvl: ~1.7k at lvl40 (≈ the quadratic), ~10k at lvl50, ~65k at lvl60.
+    needFor(lvl) { return Math.round(8 + lvl * 5 + lvl * lvl * 1.15 + 1.15 * Math.pow(1.2, lvl)); },
 
     edgePoint() {
       const W = S.W, H = S.H, m = 6;
