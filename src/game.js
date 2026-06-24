@@ -39,9 +39,21 @@
       this.makeStars();
       // adaptive quality: ratchets DOWN only, and starts at the lowest tier this device has hit before
       this._fpsAvg = 60; this._qualT = 0;
-      let q0 = 2;
-      try { const v = localStorage.getItem("voidmart_qual"); if (v != null) q0 = M.clamp(parseInt(v, 10) || 0, 0, 2); } catch (_) {}
-      this._setQual(q0);
+      let q0 = 2, stored = null, seeded = false;
+      try { stored = localStorage.getItem("voidmart_qual"); } catch (_) {}
+      if (stored != null) {
+        q0 = M.clamp(parseInt(stored, 10) || 0, 0, 2);   // a real measured tier from a past session
+      } else {
+        // first run on this device — guess a starting tier from the device's own hints (no native bridge needed:
+        // these are exposed to the page in the browser AND inside the TWA), so weak phones start light instead of
+        // hitching through the first boss before FPS adaptation catches up. FPS can still ratchet it lower from here.
+        const dm = navigator.deviceMemory || 0;        // RAM in GB (Chrome; rounded, capped at 8)
+        const hc = navigator.hardwareConcurrency || 0; // logical CPU cores
+        if (dm && dm <= 2) q0 = 0;
+        else if ((dm && dm <= 3) || (hc && hc <= 4)) q0 = 1;
+        seeded = true;
+      }
+      this._setQual(q0, !seeded);   // don't persist a guess — only FPS-measured drops get written
       this.last = performance.now();
       requestAnimationFrame((t) => this.loop(t));
     },
@@ -1422,12 +1434,13 @@
       // ratchet DOWN only: a device that struggles once will struggle again, so never raise back up
       if (this._fpsAvg < 43) this._setQual(this.qual - 1);
     },
-    _setQual(q) {
+    _setQual(q, persist) {
       this.qual = q;
       this.particleCap = [70, 120, 170][q];
       this.fxScale = [0.45, 0.75, 1][q];
       this.coinCap = [14, 18, 24][q];
-      try { localStorage.setItem("voidmart_qual", q); } catch (_) {}   // remember this device's tier for future games
+      // persist only MEASURED tiers (FPS-driven drops) — never the first-run guess, so localStorage stays the device's true floor
+      if (persist !== false) { try { localStorage.setItem("voidmart_qual", q); } catch (_) {} }
     },
     loop(t) {
       const raw = (t - this.last) / 1000;
