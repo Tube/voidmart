@@ -23,7 +23,7 @@
     o.weight = o.weight == null ? 1 : o.weight;
     o.max = o.max == null ? 1 : o.max;
     o.dept = o.dept || "Add-ons";
-    o.door = /doorbuster/i.test(o.desc || "");   // the "Doorbuster!" deals → limited to one per game
+    o.door = o.rarity === "legendary";   // the rare "Doorbuster" tier (incl. chain lightning + blink) → one per game
     return o;
   }
 
