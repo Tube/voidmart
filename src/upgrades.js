@@ -132,6 +132,19 @@
     U({ id: "swarm", name: "Refurb Drone Swarm", icon: "🤖", dept: "Add-ons", rarity: "legendary", max: 1,
         desc: "THREE refurbished drones orbit and fire — all at once. Doorbuster!",
         apply: (s) => { s.addDrone(); s.addDrone(); s.addDrone(); } }),
+
+    /* ---------------- ENDLESS RESTOCK (never sell out — keeps the shop full for marathon runs) ----------------
+       Low weight so they're rare while the real catalog still has stock, but they have no cap, so once
+       everything else is maxed these are all that's left and the shelves are never bare. */
+    U({ id: "endless_pow", name: "Doubling Down", icon: "🔁", dept: "Add-ons", rarity: "epic", max: Infinity, endless: true, weight: 0.5,
+        desc: "+6% damage and +6% fire rate. Always restocked.",
+        apply: (s) => { s.stats.damage *= 1.06; s.stats.fireRate *= 1.06; } }),
+    U({ id: "endless_def", name: "Overstock Plating", icon: "🧱", dept: "Hull & Body", rarity: "epic", max: Infinity, endless: true, weight: 0.5,
+        desc: "+25 max hull and +18 max field. Never out of stock.",
+        apply: (s) => { s.stats.maxHull += 25; s.hull += 25; s.stats.maxShield += 18; s.shield += 18; } }),
+    U({ id: "endless_coin", name: "Compounding Interest", icon: "🧾", dept: "Add-ons", rarity: "epic", max: Infinity, endless: true, weight: 0.5,
+        desc: "+8% coin value and +6% pickup range. Always available.",
+        apply: (s) => { s.stats.coinDrop *= 1.08; s.stats.pickup *= 1.06; } }),
   ];
 
   const BY_ID = {};

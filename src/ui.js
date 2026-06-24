@@ -125,7 +125,8 @@
             '<div class="deal-price"><span class="price-now">FREE</span>' +
               '<span class="price-old">' + price.old + '</span>' +
               '<span class="price-off">-' + price.off + '%</span></div>' +
-            (u.max > 1 ? '<div class="deal-lvl">stocks ' + have + '/' + u.max + '</div>' : '') +
+            (u.endless ? '<div class="deal-lvl">♾ always in stock · owned ×' + have + '</div>'
+                       : (u.max > 1 ? '<div class="deal-lvl">stocks ' + have + '/' + u.max + '</div>' : '')) +
             '<button class="add-cart">＋ Add to cart</button>' +
           '</div>';
         card.addEventListener("click", () => { this.closeFlash(); g.chooseUpgrade(u); });
