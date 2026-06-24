@@ -514,6 +514,9 @@
         e.phase = (e.hp / e.maxHp) < 0.4 ? 2 : (e.hp / e.maxHp) < 0.7 ? 1 : 0;
         if (e.mode === "aim") {
           e.vx *= 0.86; e.vy *= 0.86;
+          // don't loiter in a corner while winding up — drift back toward open space for a runway
+          const m2 = 130 * u;
+          if (e.x < m2 || e.x > W - m2 || e.y < m2 || e.y > H - m2) steer(e, approachAng(e, W / 2, H / 2), 360 * u, dt, 150 * u);
           // turn slowly toward a charge target clamped inside the arena
           const ca = chargeAng(e, game, 70);
           e.ang = M.angToward(e.ang, ca, (1.0 + e.phase * 0.15) * dt);
@@ -868,8 +871,9 @@
           const n = 12 + (((e.maxHp - e.hp) / e.maxHp) > 0.5 ? 6 : 0), off = M.rand(0, 1);
           for (let i = 0; i < n; i++) enemyShot(game, e.x, e.y, (i / n + off) * M.TAU, 170, 11, "#ffc0e8", 6);
           game.addPop(e.x, e.y, e.r * 2.6, "#ff8fd0", { w: 3 });
-          const aa = M.rand(0, M.TAU), dist = 230 * u;
-          e.x = game.ship.x + Math.cos(aa) * dist; e.y = game.ship.y + Math.sin(aa) * dist;
+          const aa = M.rand(0, M.TAU), dist = 230 * u, mg = 90 * u;   // clamp the hop to open space so it never lands jammed in a corner
+          e.x = M.clamp(game.ship.x + Math.cos(aa) * dist, mg, TD.Screen.W - mg);
+          e.y = M.clamp(game.ship.y + Math.sin(aa) * dist, mg, TD.Screen.H - mg);
           game.addPop(e.x, e.y, e.r * 2, "#ff8fd0", { w: 3, life: 0.2 });
           if (game.enemies.length < 26) game.spawnEnemy("mine", e.x, e.y, { hpScale: e.hpScale * 0.7 });
         }
@@ -1074,7 +1078,7 @@
       spawn(e) { const u = TD.Screen.unit; e.r = 26 * u; e.t = 0; e.throwT = 1.4; e.tp = 3.5; },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
-        steer(e, d.ang + Math.sin(e.t * 1.5) * 1.2, 120 * u, dt, 120 * u); e.vx *= 0.95; e.vy *= 0.95;
+        steer(e, approachAng(e, game.ship.x, game.ship.y) + Math.sin(e.t * 1.5) * 1.2, 120 * u, dt, 120 * u); e.vx *= 0.95; e.vy *= 0.95;
         e.ang = e.t * 1.5;
         e.throwT -= dt;
         if (e.throwT <= 0) { e.throwT = M.rand(0.7, 1.2);
@@ -1100,7 +1104,7 @@
       spawn(e) { const u = TD.Screen.unit; e.r = 28 * u; e.t = 0; e.fan = 1.0; e.crow = 6; e.strut = 0; e.combTimer = 5; e.combOut = false; e.combShips = []; },
       update(e, game, dt) {
         const u = TD.Screen.unit, d = dToShip(e, game); e.t += dt;
-        steer(e, d.ang + Math.PI / 2 * Math.sin(e.t), 110 * u, dt, 90 * u); e.vx *= 0.94; e.vy *= 0.94; e.ang = d.ang;
+        steer(e, approachAng(e, game.ship.x, game.ship.y) + Math.PI / 2 * Math.sin(e.t), 110 * u, dt, 90 * u); e.vx *= 0.94; e.vy *= 0.94; e.ang = d.ang;
         e.fan -= dt;
         if (e.fan <= 0) { e.fan = 1.0; for (let k = -3; k <= 3; k++) enemyShot(game, e.x, e.y, d.ang + k * 0.16, 260, 10, "#ff9c8a", 5); }
         e.crow -= dt;
