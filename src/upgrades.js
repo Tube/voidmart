@@ -165,7 +165,8 @@
       const deptInvest = {};
       for (const id in ship.mods) {
         const def = BY_ID[id];
-        if (def) deptInvest[def.dept] = (deptInvest[def.dept] || 0) + ship.mods[id];
+        // endless restock picks don't reinforce their department — otherwise stacking them snowballs their own odds
+        if (def && !def.endless) deptInvest[def.dept] = (deptInvest[def.dept] || 0) + ship.mods[id];
       }
       // legendary "Doorbuster" deals are a paid perk — excluded for free players.
       const paid = !!(TD.Entitlement && TD.Entitlement.isUnlocked());
@@ -191,6 +192,8 @@
           const inv = deptInvest[u.dept] || 0;
           w *= 1 + Math.min(inv * 0.35, 1.4);
         }
+        // never let owning an endless upgrade raise its own odds — each copy you hold makes the next one rarer
+        if (u.endless) w /= 1 + have;
         cands.push({ u, w });
       }
       const out = [];
