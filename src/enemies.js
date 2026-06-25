@@ -8,17 +8,16 @@
   const TD = window.TD;
   const M = TD.math;
 
+  // SCREEN SPACE: every enemy aims at and chases the ship's TRUE on-screen position — never the toroidal
+  // "ghost" across the wrap seam. The arena is a single visible screen, so the real vector is always the
+  // right target; this stops enemies facing/firing/steering off the edges when the ship is near the far side.
+  // (The shared M.wrapDelta — used by coins/pickups/the ship's own wrap — is untouched.)
   function dToShip(e, game) {
-    const s = game.ship;
-    const dl = M.wrapDelta(e.x, e.y, s.x, s.y, TD.Screen.W, TD.Screen.H);
-    dl.ang = Math.atan2(dl.dy, dl.dx);
-    return dl;
-  }
-  // REAL on-screen distance (no wrap-around) — for units that should behave in screen space
-  function dToShipReal(e, game) {
     const s = game.ship, dx = s.x - e.x, dy = s.y - e.y;
     return { dx, dy, d: Math.hypot(dx, dy), ang: Math.atan2(dy, dx) };
   }
+  // alias kept for callers that explicitly ask for screen space (now identical to dToShip)
+  function dToShipReal(e, game) { return dToShip(e, game); }
   function enemyShot(game, x, y, ang, speed, dmg, color, r, opts) {
     const u = TD.Screen.unit;
     if (game.enemyShots.length > 260) return;
