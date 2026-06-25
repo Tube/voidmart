@@ -1012,13 +1012,23 @@
         s.angle = M.angToward(s.angle, target, turn);
         // thrust toward facing if pointer isn't basically on top of the ship
         if (tdist > s.r * 0.8) {
-          thrusting = true;
-          const f = 780 * st.thrust * S.unit * moveBoost * beamMove;
-          s.vx += Math.cos(s.angle) * f * dt;
-          s.vy += Math.sin(s.angle) * f * dt;
-          s.flame = Math.min(1, s.flame + dt * 6);
-          if (Math.random() < 0.3 * this.fxScale) this.thrustParticle();
-          if (tdL > 0) this.burnTrail(tdL, dt);
+          // Soft-start while (nearly) stopped: a close tap rotates in place, then eases into thrust on a
+          // gradient — turn-only within ~50px, ramping to ~half by ~100px and full by ~150px. This gate
+          // ONLY bites while basically stationary; once moving, a small distance just means we're arriving
+          // at the finger (not a precision turn), so full thrust is kept.
+          const distGate = M.clamp((tdist - 50 * S.unit) / (100 * S.unit), 0, 1);
+          const curSp = Math.hypot(s.vx, s.vy);
+          const slow = M.clamp(1 - curSp / (80 * S.unit), 0, 1);   // 1 when stopped → 0 once moving
+          const startGate = 1 - slow * (1 - distGate);             // = distGate when stopped, = 1 when moving
+          if (startGate > 0.02) {
+            thrusting = true;
+            const f = 780 * st.thrust * S.unit * moveBoost * beamMove * startGate;
+            s.vx += Math.cos(s.angle) * f * dt;
+            s.vy += Math.sin(s.angle) * f * dt;
+            s.flame = Math.min(1, s.flame + dt * 6 * startGate);
+            if (Math.random() < 0.3 * this.fxScale * startGate) this.thrustParticle();
+            if (tdL > 0) this.burnTrail(tdL, dt);
+          } else s.flame = Math.max(0, s.flame - dt * 6);   // turn-only: no thrust, brake drag holds position
         } else s.flame = Math.max(0, s.flame - dt * 6);
       } else s.flame = Math.max(0, s.flame - dt * 6);
 
