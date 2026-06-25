@@ -112,9 +112,9 @@
     U({ id: "drone", name: "Drone Buddy (Refurb.)", icon: "🤖", dept: "Add-ons", rarity: "epic", max: 4, weight: 1.1,
         desc: "A little refurbished drone orbits & shoots for you.", apply: (s) => s.addDrone() }),
     U({ id: "jackpot", name: "Everything-Free Friday", icon: "🎉", dept: "Add-ons", rarity: "legendary", max: 2,
-        desc: "+1 projectile, +12% damage AND +12% fire rate. Doorbuster!",
-        descFor: (s) => (s.chassis && s.chassis.dronesForProj) ? "+1 drone, +12% damage AND +12% fire rate. Doorbuster!" : null,
-        apply: (s) => { if (s.chassis && s.chassis.dronesForProj) s.addDrone(); else s.stats.projAdd += 1; s.stats.damage *= 1.12; s.stats.fireRate *= 1.12; } }),
+        desc: "+1 projectile, +12% damage AND +6% fire rate. Doorbuster!",
+        descFor: (s) => (s.chassis && s.chassis.dronesForProj) ? "+1 drone, +12% damage AND +6% fire rate. Doorbuster!" : null,
+        apply: (s) => { if (s.chassis && s.chassis.dronesForProj) s.addDrone(); else s.stats.projAdd += 1; s.stats.damage *= 1.12; s.stats.fireRate *= 1.06; } }),
 
     /* ---------------- DOORBUSTERS (legendary — paid players only) ---------------- */
     U({ id: "multipack", name: "Bulk-Buy Multipack", icon: "📦", dept: "Add-ons", rarity: "legendary", max: 1,
@@ -138,8 +138,8 @@
        Low weight so they're rare while the real catalog still has stock, but they have no cap, so once
        everything else is maxed these are all that's left and the shelves are never bare. */
     U({ id: "endless_pow", name: "Doubling Down", icon: "🔁", dept: "Add-ons", rarity: "epic", max: Infinity, endless: true, weight: 0.5,
-        desc: "+6% damage and +6% fire rate. Always restocked.",
-        apply: (s) => { s.stats.damage *= 1.06; s.stats.fireRate *= 1.06; } }),
+        desc: "+6% damage and +4% fire rate. Always restocked.",
+        apply: (s) => { s.stats.damage *= 1.06; s.stats.fireRate *= 1.04; } }),
     U({ id: "endless_def", name: "Overstock Plating", icon: "🧱", dept: "Hull & Body", rarity: "epic", max: Infinity, endless: true, weight: 0.5,
         desc: "+25 max hull and +18 max field. Never out of stock.",
         apply: (s) => { s.stats.maxHull += 25; s.hull += 25; s.stats.maxShield += 18; s.shield += 18; } }),
