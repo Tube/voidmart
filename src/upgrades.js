@@ -48,7 +48,7 @@
 
     /* ---------------- OFFENCE (Add-ons) ---------------- */
     U({ id: "firerate", name: "Overclocked Trigger", icon: "⏱️", dept: "Add-ons", rarity: "common", max: 7,
-        desc: "+18% fire rate. Voids warranty on impact.", apply: (s) => s.stats.fireRate *= 1.18 }),
+        desc: "+9% fire rate. Voids warranty on impact.", apply: (s) => s.stats.fireRate *= 1.09 }),
     U({ id: "damage", name: "Bootleg Gunpowder", icon: "🧨", dept: "Add-ons", rarity: "common", max: 8,
         desc: "+16% damage. Smells faintly of regret.", apply: (s) => s.stats.damage *= 1.16 }),
     U({ id: "projspeed", name: "Aftermarket Barrel", icon: "🛢️", dept: "Add-ons", rarity: "common", max: 4,
