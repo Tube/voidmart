@@ -450,6 +450,12 @@
       }
       return false;
     },
+    // tests ONLY the main body (ignores e.parts) — used to tell an armored-orb hit from a core hit
+    hitEnemyCore(e, x, y, rad) {
+      if (e.def.hitEllipse) return this.ellipseHit(e, x, y, rad);
+      const rr = rad + e.r;
+      return (x - e.x) * (x - e.x) + (y - e.y) * (y - e.y) < rr * rr;
+    },
 
     /* ---------- combat helpers ---------- */
     damageEnemy(e, dmg, crit, at) {
@@ -1341,6 +1347,13 @@
         for (const e of this.enemies) {
           if (e.dead || (p.hits && p.hits.has(e))) continue;
           if (this.hitEnemy(e, p.x, p.y, p.r)) {
+            // Armored parts (Twin Tumbler orbs): a shot on a part but NOT the core is deflected — no damage,
+            // and the orb fully consumes the shot so Pierce can't punch through to the body behind it.
+            if (e.def.armoredParts && !this.hitEnemyCore(e, p.x, p.y, p.r)) {
+              if (p.kind === "blade") continue;          // melee just grazes the armor harmlessly
+              this.spark(p.x, p.y, "#e6ebf5", 3, 1.2);   // clink off the steel orb
+              p.dead = true; break;                        // consumed regardless of remaining pierce
+            }
             this.damageEnemy(e, p.dmg, p.crit, { x: p.x, y: p.y });
             if (p.splash > 0) this.explodeAt(p.x, p.y, p.splash, p.dmg * (s.stats.splashDmg || 0.4), e);
             if (p.hits) p.hits.add(e);
@@ -1373,9 +1386,10 @@
       for (const e of this.enemies) {
         if (e.dead) continue;
         const dl = M.wrapDelta(e.x, e.y, s.x, s.y, S.W, S.H);
-        let touching;
-        if (e.def.hitEllipse) touching = this.ellipseHit(e, e.x + dl.dx, e.y + dl.dy, s.r);
-        else { const rr = e.r + s.r; touching = dl.dx * dl.dx + dl.dy * dl.dy < rr * rr; }
+        let coreTouch;
+        if (e.def.hitEllipse) coreTouch = this.ellipseHit(e, e.x + dl.dx, e.y + dl.dy, s.r);
+        else { const rr = e.r + s.r; coreTouch = dl.dx * dl.dx + dl.dy * dl.dy < rr * rr; }
+        let touching = coreTouch;
         if (!touching && e.parts) {            // segmented bosses: test each body part
           for (const pt of e.parts) {
             const r2 = pt.r + s.r;
@@ -1400,8 +1414,11 @@
           }
           // ram damage to enemy (reduced — or nullified — while the enemy is charging; ×hull ram multiplier)
           if (s.stats.bodyDmg > 0 && (e.contactCD || 0) <= 0) {
-            const cr = this.chargeCollisionResist(e);
-            if (cr > 0) this.damageEnemy(e, s.stats.bodyDmg * velF * cr * (s.stats.ramDmgMul || 1), false, e);
+            // armored orbs (Twin Tumbler): ramming an orb deals no body damage — only a hit on the core counts
+            if (!(e.def.armoredParts && !coreTouch)) {
+              const cr = this.chargeCollisionResist(e);
+              if (cr > 0) this.damageEnemy(e, s.stats.bodyDmg * velF * cr * (s.stats.ramDmgMul || 1), false, e);
+            }
             e.contactCD = 0.4;
           }
           if (e.dead) continue;

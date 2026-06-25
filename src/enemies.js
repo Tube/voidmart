@@ -646,7 +646,7 @@
 
     /* 1 — Twin Tumbler: two heavy orbs whirling on a tether */
     bolas: {
-      name: "Twin Tumbler", color: "#ff9d2b", baseHp: 240, contact: 22, score: 360, coins: 80, isMini: true,
+      name: "Twin Tumbler", color: "#ff9d2b", baseHp: 240, contact: 22, score: 360, coins: 80, isMini: true, armoredParts: true,
       banner: ["🔗 TWIN TUMBLER", "Two orbs. One bad day."],
       spawn(e) { const u = TD.Screen.unit; e.r = 12 * u; e.t = 0; e.spin = 2.4; e.arm = 46 * u; e.orb = 16 * u;
         e.parts = [{ x: e.x, y: e.y, r: e.orb }, { x: e.x, y: e.y, r: e.orb }]; },
@@ -659,7 +659,10 @@
         ctx.strokeStyle = "rgba(255,157,43,.5)"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(p[0].x - e.x, p[0].y - e.y); ctx.lineTo(p[1].x - e.x, p[1].y - e.y); ctx.stroke();
         for (const o of p) { ctx.beginPath(); ctx.arc(o.x - e.x, o.y - e.y, o.r, 0, M.TAU);
-          neon(ctx, "#ffd14d", "rgba(255,157,43,.25)", 3); }
+          neon(ctx, "#ffd14d", "rgba(255,157,43,.25)", 3);
+          // hard steel rim — telegraphs that the orbs are armored (shots/rams just clink off)
+          ctx.beginPath(); ctx.arc(o.x - e.x, o.y - e.y, o.r - 2.5, 0, M.TAU);
+          ctx.strokeStyle = "rgba(214,222,235,.92)"; ctx.lineWidth = 2.5; ctx.stroke(); }
         ctx.beginPath(); ctx.arc(0, 0, e.r, 0, M.TAU); neon(ctx, e.color, "rgba(255,157,43,.3)", 2); },
     },
 
