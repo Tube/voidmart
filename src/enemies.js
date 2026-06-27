@@ -8,16 +8,30 @@
   const TD = window.TD;
   const M = TD.math;
 
-  // SCREEN SPACE: every enemy aims at and chases the ship's TRUE on-screen position — never the toroidal
-  // "ghost" across the wrap seam. The arena is a single visible screen, so the real vector is always the
-  // right target; this stops enemies facing/firing/steering off the edges when the ship is near the far side.
-  // (The shared M.wrapDelta — used by coins/pickups/the ship's own wrap — is untouched.)
+  // SCREEN SPACE by default: enemies aim at and chase the ship's TRUE on-screen position — never the
+  // toroidal "ghost" across the wrap seam (which made them fire/steer off the edges when the ship was on
+  // the far side). EXCEPTION: small melee chasers flagged `wrapChase` (all non-shooters) may pursue the
+  // player THROUGH the seam, but only when the player is genuinely close that way (≤15% of the screen) —
+  // otherwise they chase the real position like everyone else (so they never beeline off toward a far ghost).
+  // (The shared M.wrapDelta — coins/pickups/the ship's own wrap — is untouched.)
   function dToShip(e, game) {
+    const s = game.ship, dx = s.x - e.x, dy = s.y - e.y;
+    if (e.def && e.def.wrapChase) {
+      const W = TD.Screen.W, H = TD.Screen.H;
+      let wdx = dx, wdy = dy;
+      if (wdx > W / 2) wdx -= W; else if (wdx < -W / 2) wdx += W;
+      if (wdy > H / 2) wdy -= H; else if (wdy < -H / 2) wdy += H;
+      const wd = Math.hypot(wdx, wdy);
+      if (wd < Math.hypot(dx, dy) && wd <= 0.15 * Math.hypot(W, H))   // close via the seam → chase through it
+        return { dx: wdx, dy: wdy, d: wd, ang: Math.atan2(wdy, wdx) };
+    }
+    return { dx, dy, d: Math.hypot(dx, dy), ang: Math.atan2(dy, dx) };
+  }
+  // REAL on-screen vector — always screen-space, ignores wrapChase (used by screen-bound units)
+  function dToShipReal(e, game) {
     const s = game.ship, dx = s.x - e.x, dy = s.y - e.y;
     return { dx, dy, d: Math.hypot(dx, dy), ang: Math.atan2(dy, dx) };
   }
-  // alias kept for callers that explicitly ask for screen space (now identical to dToShip)
-  function dToShipReal(e, game) { return dToShip(e, game); }
   function enemyShot(game, x, y, ang, speed, dmg, color, r, opts) {
     const u = TD.Screen.unit;
     if (game.enemyShots.length > 260) return;
@@ -168,7 +182,7 @@
 
     /* Bargain Bot — kamikaze homing */
     seeker: {
-      name: "Bargain Bot", color: "#ff5a3c", baseHp: 9, contact: 16, score: 25, coins: 2, touchKill: true,
+      name: "Bargain Bot", color: "#ff5a3c", baseHp: 9, contact: 16, score: 25, coins: 2, touchKill: true, wrapChase: true,
       spawn(e) { e.r = 9 * TD.Screen.unit; e.maxSpeed = M.rand(140, 180) * TD.Screen.unit; },
       update(e, game, dt) {
         const d = dToShip(e, game);
@@ -243,7 +257,7 @@
 
     /* Counterfeit Pod — bursts into seekers */
     splitter: {
-      name: "Counterfeit Pod", color: "#c46bff", baseHp: 34, contact: 13, score: 60, coins: 5,
+      name: "Counterfeit Pod", color: "#c46bff", baseHp: 34, contact: 13, score: 60, coins: 5, wrapChase: true,
       spawn(e) {
         e.r = 16 * TD.Screen.unit; e.spin = M.rand(-1, 1);
         e.pulse = 0;
@@ -374,7 +388,7 @@
 
     /* Drifting Deal — proximity mine */
     mine: {
-      name: "Drifting Deal", color: "#ff3355", baseHp: 14, contact: 30, score: 45, coins: 4, touchKill: true,
+      name: "Drifting Deal", color: "#ff3355", baseHp: 14, contact: 30, score: 45, coins: 4, touchKill: true, wrapChase: true,
       spawn(e) {
         e.r = 12 * TD.Screen.unit; e.spin = M.rand(-2, 2); e.armed = false; e.blink = 0;
         const a = M.rand(0, M.TAU), sp = M.rand(10, 30) * TD.Screen.unit;
@@ -411,7 +425,7 @@
 
     /* Knock-off Drone — fast sine-weaving swarmling */
     weaver: {
-      name: "Knock-off Drone", color: "#7af06a", baseHp: 7, contact: 10, score: 18, coins: 1,
+      name: "Knock-off Drone", color: "#7af06a", baseHp: 7, contact: 10, score: 18, coins: 1, wrapChase: true,
       spawn(e) {
         e.r = 8 * TD.Screen.unit; e.t = M.rand(0, 6); e.heading = M.rand(0, M.TAU);
       },
